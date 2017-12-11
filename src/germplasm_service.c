@@ -15,6 +15,8 @@
 */
 #include <string.h>
 
+#include "jansson.h"
+
 #include "germplasm_service.h"
 #include "memory_allocations.h"
 #include "parameter.h"
@@ -25,7 +27,8 @@
 #include "service.h"
 #include "service_job.h"
 #include "json_tools.h"
-
+#include "sqlite_tool.h"
+#include "sql_clause.h"
 
 
 /*
@@ -35,6 +38,7 @@ typedef struct
 {
 	ServiceData gsd_base_data;
 	const char *gsd_db_url_s;
+	const char *gsd_table_s;
 } GermplasmServiceData;
 
 static NamedParameterType GS_SEED_DETAILS = { "seed", PT_STRING };
@@ -42,7 +46,7 @@ static NamedParameterType GS_SEED_ID = { "id", PT_STRING };
 
 static const char * const GS_STORE_REF_ID_S = "idStoreRef";
 static const char * const GS_STORE_CODE_S = "StoreCode";
-static const char * const GS_PLANT_ID_S = "idStoreRef";
+static const char * const GS_PLANT_ID_S = "idPlant";
 
 
 /*
@@ -72,6 +76,8 @@ static bool CloseGermplasmService (Service *service_p);
 static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p);
 
 static bool ConfigureGermplasmService (GermplasmServiceData *data_p);
+
+static LinkedList *GetWhereClauses (const char *key_s, const char *value_s);
 
 
 /*
@@ -165,11 +171,12 @@ static bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 	bool success_flag = false;
 	const json_t *service_config_p = data_p -> gsd_base_data.sd_config_p;
 
-	data_p -> gsd_db_url_s = GetJSONString (service_config_p, "database");
-
-	if (data_p -> gsd_db_url_s)
+	if ((data_p -> gsd_db_url_s = GetJSONString (service_config_p, "database")) != NULL)
 		{
-			success_flag = true;
+			if ((data_p -> gsd_table_s = GetJSONString (service_config_p, "table")) != NULL)
+				{
+					success_flag = true;
+				}
 		}
 
 	return success_flag;
@@ -227,9 +234,9 @@ static ParameterSet *GetGermplasmServiceParameters (Service *service_p, Resource
 											Parameter *param_p;
 											ServiceData *data_p = service_p -> se_data_p;
 
-											if ((param_p = EasyCreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEED_DETAILS.npt_type, GS_SEED_DETAILS.npt_name_s, "Seed data",
-												"The different seed details",
-												def, PL_ALL)) != NULL)
+											if ((param_p = CreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEED_DETAILS.npt_type, false, GS_SEED_DETAILS.npt_name_s, "Seed data",
+												"The different seed details", options_p,
+												def, NULL, NULL,  PL_ALL, NULL)) != NULL)
 												{
 													def.st_string_value_s = "";
 
@@ -280,6 +287,76 @@ static ServiceJobSet *RunGermplasmService (Service *service_p, ParameterSet *par
 
 					if (service_p -> se_jobs_p)
 						{
+							SQLiteTool *tool_p = AllocateSQLiteTool (data_p -> gsd_db_url_s, SQLITE_OPEN_READONLY, data_p -> gsd_table_s);
+
+							if (tool_p)
+								{
+									LinkedList *where_clauses_p = GetWhereClauses (field.st_string_value_s, id_value.st_string_value_s);
+
+									if (where_clauses_p)
+										{
+											const char *fields_ss [] = { GS_STORE_REF_ID_S, GS_STORE_CODE_S, GS_PLANT_ID_S , NULL };
+											char *error_s = NULL;
+											json_t *results_p = FindMatchingSQLiteDocuments (tool_p, where_clauses_p, fields_ss, &error_s);
+
+											if (results_p)
+												{
+													json_t *row_p;
+													size_t i;
+													ServiceJob *job_p = GetServiceJobFromServiceJobSet (service_p -> se_jobs_p, 0);
+													const size_t num_rows = json_array_size (results_p);
+													size_t count = 0;
+													OperationStatus status = OS_STARTED;
+
+													json_array_foreach (results_p, i, row_p)
+														{
+															char *title_s = ConvertLongToString ((int64) i);
+
+															if (title_s)
+																{
+																	json_t *row_resource_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, "", title_s, row_p);
+
+																	if (row_resource_p)
+																		{
+																			if (AddResultToServiceJob (job_p, row_resource_p))
+																				{
+																					++ count;
+																				}
+																			else
+																				{
+																					json_decref (row_resource_p);
+																				}
+																		}
+
+																	FreeCopiedString (title_s);
+																}
+
+														}
+
+													if (count == 0)
+														{
+															status = OS_FAILED;
+														}
+													else if (count == num_rows)
+														{
+															status = OS_SUCCEEDED;
+														}
+													else
+														{
+															status = OS_PARTIALLY_SUCCEEDED;
+														}
+
+													SetServiceJobStatus (job_p, status);
+
+
+													json_decref (results_p);
+												}
+
+											FreeLinkedList (where_clauses_p);
+										}		/* if (where_clauses_p) */
+
+									FreeSQLiteTool (tool_p);
+								}		/* if (tool_p) */
 
 						}
 					else
@@ -381,6 +458,29 @@ static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p)
 	else
 		{
 			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate category term %s for service metadata", term_url_s);
+		}
+
+	return NULL;
+}
+
+
+
+static LinkedList *GetWhereClauses (const char *key_s, const char *value_s)
+{
+	LinkedList *where_clauses_p = AllocateLinkedList (FreeSQLClauseNode);
+
+	if (where_clauses_p)
+		{
+			SQLClauseNode *node_p = AllocateSQLClauseNode (key_s, SQLITE_OP_EQUALS_S, value_s);
+
+			if (node_p)
+				{
+					LinkedListAddTail (where_clauses_p, (ListItem *) node_p);
+
+					return where_clauses_p;
+				}
+
+			FreeLinkedList (where_clauses_p);
 		}
 
 	return NULL;
