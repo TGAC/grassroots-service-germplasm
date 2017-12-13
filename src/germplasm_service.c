@@ -48,6 +48,11 @@ static const char * const GS_STORE_REF_ID_S = "idStoreRef";
 static const char * const GS_STORE_CODE_S = "StoreCode";
 static const char * const GS_PLANT_ID_S = "idPlant";
 
+static const char * const GS_STORE_REF_ID_DISPLAY_NAME_S = "Store reference ID";
+static const char * const GS_STORE_CODE_DISPLAY_NAME_S = "Watkins store code";
+static const char * const GS_PLANT_ID_DISPLAY_NAME_S = "Plant ID";
+
+
 
 /*
  * STATIC PROTOTYPES
@@ -221,18 +226,20 @@ static ParameterSet *GetGermplasmServiceParameters (Service *service_p, Resource
 
 					def.st_string_value_s = (char *) GS_STORE_REF_ID_S;
 
-					if (CreateAndAddParameterOption (options_p, def, NULL, PT_STRING))
+					if (CreateAndAddParameterOption (options_p, def, GS_STORE_REF_ID_DISPLAY_NAME_S, PT_STRING))
 						{
 							def.st_string_value_s = (char *) GS_STORE_CODE_S;
 
-							if (CreateAndAddParameterOption (options_p, def, NULL, PT_STRING))
+							if (CreateAndAddParameterOption (options_p, def, GS_STORE_CODE_DISPLAY_NAME_S, PT_STRING))
 								{
 									def.st_string_value_s = (char *) GS_PLANT_ID_S;
 
-									if (CreateAndAddParameterOption (options_p, def, NULL, PT_STRING))
+									if (CreateAndAddParameterOption (options_p, def, GS_PLANT_ID_DISPLAY_NAME_S, PT_STRING))
 										{
 											Parameter *param_p;
 											ServiceData *data_p = service_p -> se_data_p;
+
+											def.st_string_value_s = (char *) GS_STORE_CODE_S;
 
 											if ((param_p = CreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEED_DETAILS.npt_type, false, GS_SEED_DETAILS.npt_name_s, "Seed data",
 												"The different seed details", options_p,
@@ -296,17 +303,17 @@ static ServiceJobSet *RunGermplasmService (Service *service_p, ParameterSet *par
 									if (where_clauses_p)
 										{
 											const char *fields_ss [] = { GS_STORE_REF_ID_S, GS_STORE_CODE_S, GS_PLANT_ID_S , NULL };
+											ServiceJob *job_p = GetServiceJobFromServiceJobSet (service_p -> se_jobs_p, 0);
 											char *error_s = NULL;
+											OperationStatus status = OS_STARTED;
 											json_t *results_p = FindMatchingSQLiteDocuments (tool_p, where_clauses_p, fields_ss, &error_s);
 
 											if (results_p)
 												{
 													json_t *row_p;
 													size_t i;
-													ServiceJob *job_p = GetServiceJobFromServiceJobSet (service_p -> se_jobs_p, 0);
 													const size_t num_rows = json_array_size (results_p);
 													size_t count = 0;
-													OperationStatus status = OS_STARTED;
 
 													json_array_foreach (results_p, i, row_p)
 														{
@@ -314,7 +321,7 @@ static ServiceJobSet *RunGermplasmService (Service *service_p, ParameterSet *par
 
 															if (title_s)
 																{
-																	json_t *row_resource_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, "", title_s, row_p);
+																	json_t *row_resource_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, title_s, row_p);
 
 																	if (row_resource_p)
 																		{
@@ -346,11 +353,18 @@ static ServiceJobSet *RunGermplasmService (Service *service_p, ParameterSet *par
 															status = OS_PARTIALLY_SUCCEEDED;
 														}
 
-													SetServiceJobStatus (job_p, status);
-
-
 													json_decref (results_p);
 												}
+											else
+												{
+													status = OS_FAILED;
+													AddErrorToServiceJob (job_p, ERROR_S, error_s);
+
+													FreeSQLiteToolErrorString (tool_p, error_s);
+												}
+
+
+											SetServiceJobStatus (job_p, status);
 
 											FreeLinkedList (where_clauses_p);
 										}		/* if (where_clauses_p) */
@@ -387,7 +401,7 @@ static ParameterSet *IsFileForGermplasmService (Service * UNUSED_PARAM (service_
 
 
 
-static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p)
+static ServiceMetadata *GetGermplasmServiceMetadata (Service * UNUSED_PARAM (service_p))
 {
 	const char *term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "operation_0304";
 	SchemaTerm *category_p = AllocateSchemaTerm (term_url_s, "Query and retrieval", "Search or query a data resource and retrieve entries and / or annotation.");
@@ -400,10 +414,9 @@ static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p)
 				{
 					SchemaTerm *input_p;
 
-					/* Gene ID */
-					term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "data_1063";
-					input_p = AllocateSchemaTerm (term_url_s, "Sequence identifier",
-							"An identifier of molecular sequence(s) or entries from a molecular sequence database.");
+					/* ID */
+					term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "data_2596";
+					input_p = AllocateSchemaTerm (term_url_s, "Catalogue ID", "An identifier of a catalogue of biological resources.");
 
 					if (input_p)
 						{
@@ -411,10 +424,8 @@ static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p)
 								{
 									SchemaTerm *output_p;
 
-									term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "data_2044";
-									output_p = AllocateSchemaTerm (term_url_s, "Sequence", "This concept is a placeholder of concepts for primary sequence data "
-										"including raw sequences and sequence records. It should not normally be used for derivatives such as sequence alignments, "
-										"motifs or profiles. One or more molecular sequences, possibly with associated annotation.");
+									term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "data_2596";
+									output_p = AllocateSchemaTerm (term_url_s, "Catalogue ID", "An identifier of a catalogue of biological resources.");
 
 									if (output_p)
 										{
