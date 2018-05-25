@@ -39,6 +39,9 @@ typedef struct
 	ServiceData gsd_base_data;
 	const char *gsd_db_url_s;
 	const char *gsd_table_s;
+
+	/** The base URL for the Seedstor api/ */
+	const char *gsd_seedstor_api_s;
 } GermplasmServiceData;
 
 static NamedParameterType GS_SEED_DETAILS = { "seed", PT_STRING };
@@ -47,10 +50,12 @@ static NamedParameterType GS_SEED_ID = { "id", PT_STRING };
 static const char * const GS_STORE_REF_ID_S = "idStoreRef";
 static const char * const GS_STORE_CODE_S = "StoreCode";
 static const char * const GS_PLANT_ID_S = "idPlant";
+static const char * const GS_ACCESSION_S = "AccessionName";
 
 static const char * const GS_STORE_REF_ID_DISPLAY_NAME_S = "Store reference ID";
 static const char * const GS_STORE_CODE_DISPLAY_NAME_S = "Watkins store code";
 static const char * const GS_PLANT_ID_DISPLAY_NAME_S = "Plant ID";
+static const char * const GS_ACCESSION_DISPLAY_NAME_S = "Accession";
 
 
 
@@ -72,7 +77,11 @@ static ParameterSet *GetGermplasmServiceParameters (Service *service_p, Resource
 
 static void ReleaseGermplasmServiceParameters (Service *service_p, ParameterSet *params_p);
 
-static ServiceJobSet *RunGermplasmService (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
+static ServiceJobSet *RunGermplasmServiceForSimpleDB (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
+
+
+static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
+
 
 static ParameterSet *IsFileForGermplasmService (Service *service_p, Resource *resource_p, Handler *handler_p);
 
@@ -107,7 +116,7 @@ ServicesArray *GetServices (UserDetails *user_p)
 								GetGermplasmServiceName,
 								GetGermplasmServiceDesciption,
 								GetGermplasmServiceURI,
-								RunGermplasmService,
+								RunGermplasmServiceForSimpleDB,
 								IsFileForGermplasmService,
 								GetGermplasmServiceParameters,
 								ReleaseGermplasmServiceParameters,
@@ -184,6 +193,11 @@ static bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 				}
 		}
 
+	if ((data_p -> gsd_seedstor_api_s = GetJSONString (service_config_p, "seedstor_api")) != NULL)
+		{
+			success_flag  = true;
+		}
+
 	return success_flag;
 }
 
@@ -236,22 +250,27 @@ static ParameterSet *GetGermplasmServiceParameters (Service *service_p, Resource
 
 									if (CreateAndAddParameterOption (options_p, def, GS_PLANT_ID_DISPLAY_NAME_S, PT_STRING))
 										{
-											Parameter *param_p;
-											ServiceData *data_p = service_p -> se_data_p;
+											def.st_string_value_s = (char *) GS_ACCESSION_S;
 
-											def.st_string_value_s = (char *) GS_STORE_CODE_S;
-
-											if ((param_p = CreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEED_DETAILS.npt_type, false, GS_SEED_DETAILS.npt_name_s, "Seed data",
-												"The different seed details", options_p,
-												def, NULL, NULL,  PL_ALL, NULL)) != NULL)
+											if (CreateAndAddParameterOption (options_p, def, GS_ACCESSION_DISPLAY_NAME_S, PT_STRING))
 												{
-													def.st_string_value_s = "";
+													Parameter *param_p;
+													ServiceData *data_p = service_p -> se_data_p;
 
-													if ((param_p = EasyCreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEED_ID.npt_type, GS_SEED_ID.npt_name_s, "ID",
-													  "The value to search for",
-													 def, PL_ALL)) != NULL)
+													def.st_string_value_s = (char *) GS_STORE_CODE_S;
+
+													if ((param_p = CreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEED_DETAILS.npt_type, false, GS_SEED_DETAILS.npt_name_s, "Seed data",
+														"The different seed details", options_p,
+														def, NULL, NULL,  PL_ALL, NULL)) != NULL)
 														{
-															return param_set_p;
+															def.st_string_value_s = "";
+
+															if ((param_p = EasyCreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEED_ID.npt_type, GS_SEED_ID.npt_name_s, "ID",
+																"The value to search for",
+															 def, PL_ALL)) != NULL)
+																{
+																	return param_set_p;
+																}
 														}
 												}
 										}
@@ -274,7 +293,7 @@ static void ReleaseGermplasmServiceParameters (Service * UNUSED_PARAM (service_p
 }
 
 
-static ServiceJobSet *RunGermplasmService (Service *service_p, ParameterSet *param_set_p, UserDetails * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
+static ServiceJobSet *RunGermplasmServiceForSimpleDB (Service *service_p, ParameterSet *param_set_p, UserDetails * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
 {
 	GermplasmServiceData *data_p = (GermplasmServiceData *) service_p -> se_data_p;
 	SharedType field;
@@ -392,6 +411,106 @@ static ServiceJobSet *RunGermplasmService (Service *service_p, ParameterSet *par
 	return service_p -> se_jobs_p;
 }
 
+
+/*
+ * http://seedstor.gru.jic.ac.uk/apisearch-accessionname.php?accessionname=Germany
+ *
+ * http://seedstor.gru.jic.ac.uk/apisearch-storecode.php?storecode=WAT1070001
+ */
+
+static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
+{
+	GermplasmServiceData *data_p = (GermplasmServiceData *) service_p -> se_data_p;
+	SharedType field;
+
+	InitSharedType (&field);
+
+	if (GetParameterValueFromParameterSet (param_set_p, GS_SEED_DETAILS.npt_name_s, &field, true))
+		{
+			SharedType id_value;
+
+			InitSharedType (&id_value);
+
+			if (GetParameterValueFromParameterSet (param_set_p, GS_SEED_ID.npt_name_s, &id_value, true))
+				{
+					/* We only have one task */
+					service_p -> se_jobs_p = AllocateSimpleServiceJobSet (service_p, NULL, "Germplasm results");
+
+					if (service_p -> se_jobs_p)
+						{
+							const char *api_page_s = NULL;
+							const char *var_s = NULL;
+
+							if (field.st_string_value_s)
+								{
+									if (strcmp (field.st_string_value_s, GS_ACCESSION_S) == 0)
+										{
+											api_page_s = "apisearch-accessionname.php";
+											var_s = "accessionname";
+										}
+									else if (strcmp (field.st_string_value_s, GS_STORE_CODE_S) == 0)
+										{
+											api_page_s = "apisearch-storecode.php";
+											var_s = "storecode";
+										}
+
+									if (api_page_s && var_s)
+										{
+											/* Generate the REST API address */
+											char *api_url_s = ConcatenateVarargsStrings (data_p -> gsd_seedstor_api_s, "?", var_s, "=", id_value.st_string_value_s, NULL);
+
+											if (api_url_s)
+												{
+													/*
+													 * Now we make the call to the REST API
+													 */
+													CurlTool *curl_p = AllocateCurlTool (CM_MEMORY);
+
+													if (curl_p)
+														{
+															if (SetUriForCurlTool (curl_p, api_url_s))
+																{
+																	CURLcode c = RunCurlTool (curl_p);
+
+																	if (c == CURLE_OK)
+																		{
+																			/*
+																			 * We should now have the Seedstor results,
+																			 * so let's mark them up
+																			 */
+																		}		/* if (c == CURLE_OK) */
+
+																}		/* if (SetUriForCurlTool (curl_p, api_url_s)) */
+
+															FreeCurlTool (curl_p);
+														}		/* if (curl_p) */
+
+													FreeCopiedString (api_url_s);
+												}		/* if (api_url_s) */
+
+										}		/* if (api_page_s && var_s) */
+
+								}		/* 	if (field.st_string_value_s) */
+
+						}		/* if (service_p -> se_jobs_p) */
+					else
+						{
+							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate ServiceJobSet for %s", GetServiceName (service_p));
+						}
+
+				}
+			else
+				{
+					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to get %s parameter value", GS_SEED_ID.npt_name_s);
+				}
+		}
+	else
+		{
+			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to get %s parameter value", GS_SEED_DETAILS.npt_name_s);
+		}
+
+	return service_p -> se_jobs_p;
+}
 
 
 static ParameterSet *IsFileForGermplasmService (Service * UNUSED_PARAM (service_p), Resource * UNUSED_PARAM (resource_p), Handler * UNUSED_PARAM (handler_p))
