@@ -18,6 +18,7 @@
 #include "jansson.h"
 
 #include "germplasm_service.h"
+#include "germplasm_service_data.h"
 #include "memory_allocations.h"
 #include "parameter.h"
 #include "handler.h"
@@ -34,15 +35,6 @@
 /*
  * STATIC DATATYPES
  */
-typedef struct
-{
-	ServiceData gsd_base_data;
-	const char *gsd_db_url_s;
-	const char *gsd_table_s;
-
-	/** The base URL for the Seedstor api/ */
-	const char *gsd_seedstor_api_s;
-} GermplasmServiceData;
 
 static NamedParameterType GS_SEED_DETAILS = { "seed", PT_STRING };
 static NamedParameterType GS_SEED_ID = { "id", PT_STRING };
@@ -63,9 +55,7 @@ static const char * const GS_ACCESSION_DISPLAY_NAME_S = "Accession";
  * STATIC PROTOTYPES
  */
 
-static GermplasmServiceData *AllocateGermplasmServiceData (void);
 
-static void FreeGermplasmServiceData (GermplasmServiceData *data_p);
 
 static const char *GetGermplasmServiceName (Service *service_p);
 
@@ -89,7 +79,6 @@ static bool CloseGermplasmService (Service *service_p);
 
 static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p);
 
-static bool ConfigureGermplasmService (GermplasmServiceData *data_p);
 
 static LinkedList *GetWhereClauses (const char *key_s, const char *value_s);
 
@@ -169,43 +158,6 @@ static bool CloseGermplasmService (Service *service_p)
  * STATIC FUNCTIONS
  */
 
-
-static GermplasmServiceData *AllocateGermplasmServiceData (void)
-{
-	GermplasmServiceData *data_p = (GermplasmServiceData *) AllocMemory (sizeof (GermplasmServiceData));
-
-	memset (data_p, 0, sizeof (GermplasmServiceData));
-
-	return data_p;
-}
-
-
-static bool ConfigureGermplasmService (GermplasmServiceData *data_p)
-{
-	bool success_flag = false;
-	const json_t *service_config_p = data_p -> gsd_base_data.sd_config_p;
-
-	if ((data_p -> gsd_db_url_s = GetJSONString (service_config_p, "database")) != NULL)
-		{
-			if ((data_p -> gsd_table_s = GetJSONString (service_config_p, "table")) != NULL)
-				{
-					success_flag = true;
-				}
-		}
-
-	if ((data_p -> gsd_seedstor_api_s = GetJSONString (service_config_p, "seedstor_api")) != NULL)
-		{
-			success_flag  = true;
-		}
-
-	return success_flag;
-}
-
-
-static void FreeGermplasmServiceData (GermplasmServiceData *data_p)
-{
-	FreeMemory (data_p);
-}
 
 
 static const char *GetGermplasmServiceName (Service * UNUSED_PARAM (service_p))

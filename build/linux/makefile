@@ -33,7 +33,9 @@ INCLUDES := \
 	
 	
 SRCS 	:= \
+	germplasm_markup.c \
 	germplasm_service.c \
+	germplasm_service_data.c \
 	 
 CPPFLAGS += -DGERMPLASM_LIBRARY_EXPORTS 
 
