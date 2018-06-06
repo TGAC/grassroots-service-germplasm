@@ -30,6 +30,7 @@
 #include "json_tools.h"
 #include "sqlite_tool.h"
 #include "sql_clause.h"
+#include "germplasm_markup.h"
 
 
 /*
@@ -39,10 +40,13 @@
 static NamedParameterType GS_SEED_DETAILS = { "seed", PT_STRING };
 static NamedParameterType GS_SEED_ID = { "id", PT_STRING };
 
+static NamedParameterType GS_SEARCH = { "query", PT_STRING };
+
 static const char * const GS_STORE_REF_ID_S = "idStoreRef";
 static const char * const GS_STORE_CODE_S = "StoreCode";
 static const char * const GS_PLANT_ID_S = "idPlant";
 static const char * const GS_ACCESSION_S = "AccessionName";
+static const char * const GS_SEARCH_S = "Search";
 
 static const char * const GS_STORE_REF_ID_DISPLAY_NAME_S = "Store reference ID";
 static const char * const GS_STORE_CODE_DISPLAY_NAME_S = "Watkins store code";
@@ -63,7 +67,10 @@ static const char *GetGermplasmServiceDesciption (Service *service_p);
 
 static const char *GetGermplasmServiceURI (Service *service_p);
 
-static ParameterSet *GetGermplasmServiceParameters (Service *service_p, Resource *resource_p, UserDetails *user_p);
+static ParameterSet *GetGermplasmServiceParametersForSimpleDB (Service *service_p, Resource *resource_p, UserDetails *user_p);
+
+static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, Resource *resource_p, UserDetails *user_p);
+
 
 static void ReleaseGermplasmServiceParameters (Service *service_p, ParameterSet *params_p);
 
@@ -105,9 +112,9 @@ ServicesArray *GetServices (UserDetails *user_p)
 								GetGermplasmServiceName,
 								GetGermplasmServiceDesciption,
 								GetGermplasmServiceURI,
-								RunGermplasmServiceForSimpleDB,
+								RunGermplasmServiceForSeedstorAPI,
 								IsFileForGermplasmService,
-								GetGermplasmServiceParameters,
+								GetGermplasmServiceParametersForSeedstorAPI,
 								ReleaseGermplasmServiceParameters,
 								CloseGermplasmService,
 								NULL,
@@ -178,7 +185,33 @@ static const char *GetGermplasmServiceURI (Service * UNUSED_PARAM (service_p))
 }
 
 
-static ParameterSet *GetGermplasmServiceParameters (Service *service_p, Resource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
+static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, Resource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
+{
+	ParameterSet *param_set_p = AllocateParameterSet ("Germplasm service parameters", "The parameters used for the Germplasm service");
+
+	if (param_set_p)
+		{
+			Parameter *param_p;
+			ServiceData *data_p = service_p -> se_data_p;
+			SharedType def;
+
+			InitSharedType (&def);
+
+			def.st_string_value_s = (char *) GS_SEARCH_S;
+
+			if ((param_p = EasyCreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEARCH.npt_type, GS_SEARCH.npt_name_s, "Search", "The value to search SeedStor for", def, PL_ALL)) != NULL)
+				{
+					return param_set_p;
+				}
+
+			FreeParameterSet (param_set_p);
+		}		/* if (param_set_p) */
+
+	return NULL;
+}
+
+
+static ParameterSet *GetGermplasmServiceParametersForSimpleDB (Service *service_p, Resource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
 {
 	ParameterSet *param_set_p = AllocateParameterSet ("Germplasm service parameters", "The parameters used for the Germplasm service");
 
@@ -368,81 +401,130 @@ static ServiceJobSet *RunGermplasmServiceForSimpleDB (Service *service_p, Parame
  * http://seedstor.gru.jic.ac.uk/apisearch-accessionname.php?accessionname=Germany
  *
  * http://seedstor.gru.jic.ac.uk/apisearch-storecode.php?storecode=WAT1070001
+ *
+ * https://grassroots.tools/seedstor/apisearch-unified.php?query=10222
  */
 
 static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
 {
 	GermplasmServiceData *data_p = (GermplasmServiceData *) service_p -> se_data_p;
-	SharedType field;
+	SharedType search_value;
 
-	InitSharedType (&field);
+	InitSharedType (&search_value);
 
-	if (GetParameterValueFromParameterSet (param_set_p, GS_SEED_DETAILS.npt_name_s, &field, true))
+	if (GetParameterValueFromParameterSet (param_set_p, GS_SEED_DETAILS.npt_name_s, &search_value, true))
 		{
-			SharedType id_value;
 
-			InitSharedType (&id_value);
-
-			if (GetParameterValueFromParameterSet (param_set_p, GS_SEED_ID.npt_name_s, &id_value, true))
+			if (search_value.st_string_value_s)
 				{
 					/* We only have one task */
 					service_p -> se_jobs_p = AllocateSimpleServiceJobSet (service_p, NULL, "Germplasm results");
 
 					if (service_p -> se_jobs_p)
 						{
-							const char *api_page_s = NULL;
-							const char *var_s = NULL;
+							const char *api_page_s = "apisearch-unified.php";
+							const char *var_s = "query";
 
-							if (field.st_string_value_s)
+							/* Generate the REST API address */
+							char *api_url_s = ConcatenateVarargsStrings (data_p -> gsd_seedstor_api_s, "?", var_s, "=", search_value.st_string_value_s, NULL);
+
+							if (api_url_s)
 								{
-									if (strcmp (field.st_string_value_s, GS_ACCESSION_S) == 0)
-										{
-											api_page_s = "apisearch-accessionname.php";
-											var_s = "accessionname";
-										}
-									else if (strcmp (field.st_string_value_s, GS_STORE_CODE_S) == 0)
-										{
-											api_page_s = "apisearch-storecode.php";
-											var_s = "storecode";
-										}
+									/*
+									 * Now we make the call to the REST API
+									 */
+									CurlTool *curl_p = AllocateCurlTool (CM_MEMORY);
 
-									if (api_page_s && var_s)
+									if (curl_p)
 										{
-											/* Generate the REST API address */
-											char *api_url_s = ConcatenateVarargsStrings (data_p -> gsd_seedstor_api_s, "?", var_s, "=", id_value.st_string_value_s, NULL);
-
-											if (api_url_s)
+											if (SetUriForCurlTool (curl_p, api_url_s))
 												{
-													/*
-													 * Now we make the call to the REST API
-													 */
-													CurlTool *curl_p = AllocateCurlTool (CM_MEMORY);
+													CURLcode c = RunCurlTool (curl_p);
 
-													if (curl_p)
+													if (c == CURLE_OK)
 														{
-															if (SetUriForCurlTool (curl_p, api_url_s))
+															const char *results_s = GetCurlToolData (curl_p);
+
+															if (results_s)
 																{
-																	CURLcode c = RunCurlTool (curl_p);
+																	json_error_t err;
+																	json_t *results_p = json_loads (results_s, JSON_DECODE_ANY, &err);
 
-																	if (c == CURLE_OK)
+																	if (results_p)
 																		{
-																			/*
-																			 * We should now have the Seedstor results,
-																			 * so let's mark them up
-																			 */
-																		}		/* if (c == CURLE_OK) */
+																			if (json_is_array (results_p))
+																				{
+																					size_t i;
+																					json_t *raw_result_p;
+																					ServiceJob *job_p = GetServiceJobFromServiceJobSet (service_p -> se_jobs_p, 0);
 
-																}		/* if (SetUriForCurlTool (curl_p, api_url_s)) */
+																					json_array_foreach (results_p, i, raw_result_p)
+																						{
+																							/*
+																							 * We should now have the Seedstor results,
+																							 * so let's mark them up
+																							 */
+																							json_t *marked_up_result_p = ConvertSeedstorResultToGrassrootsMarkUp (raw_result_p, data_p);
 
-															FreeCurlTool (curl_p);
-														}		/* if (curl_p) */
+																							if (marked_up_result_p)
+																								{
+																									if (AddResultToServiceJob (job_p, marked_up_result_p))
+																										{
 
-													FreeCopiedString (api_url_s);
-												}		/* if (api_url_s) */
+																										}
 
-										}		/* if (api_page_s && var_s) */
+																								}		/* if (marked_up_result_p) */
+																							else
+																								{
+																									PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, raw_result_p, "Failed to convert raw result to Markup");
+																								}
 
-								}		/* 	if (field.st_string_value_s) */
+
+																						}		/* json_array_forech (results_p, i, result_p) */
+
+																				}		/* if (json_is_array (results_p)) */
+																			else
+																				{
+																					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Results are not a JSON array \"%s\"", results_s);
+																				}
+
+																		}		/* if (results_p) */
+																	else
+																		{
+																			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to convert \"%s\" to JSON, error: \"%s\"", results_s, err.source);
+																		}
+
+																}		/* if (results_s) */
+															else
+																{
+																	PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "No results from calling \"%s\"", api_url_s);
+																}
+
+														}		/* if (c == CURLE_OK) */
+													else
+														{
+															PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "RunCurlTool failed for \"%s\", error, %d ", api_url_s, c);
+														}
+
+												}		/* if (SetUriForCurlTool (curl_p, api_url_s)) */
+											else
+												{
+													PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "SetUriForCurlTool failed for \"%s\"", api_url_s);
+												}
+
+											FreeCurlTool (curl_p);
+										}		/* if (curl_p) */
+									else
+										{
+											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "AllocateCurlTool failed for \"%s\"", api_url_s);
+										}
+
+									FreeCopiedString (api_url_s);
+								}		/* if (api_url_s) */
+							else
+								{
+									PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "ConcatenateVarargsStrings failed for \"%s\", \"%s\" and \"%s\"", data_p -> gsd_seedstor_api_s, var_s, search_value.st_string_value_s);
+								}
 
 						}		/* if (service_p -> se_jobs_p) */
 					else
@@ -450,10 +532,10 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate ServiceJobSet for %s", GetServiceName (service_p));
 						}
 
-				}
+				}		/* if (search_value.st_string_value_s) */
 			else
 				{
-					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to get %s parameter value", GS_SEED_ID.npt_name_s);
+					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate ServiceJobSet for %s", GetServiceName (service_p));
 				}
 		}
 	else

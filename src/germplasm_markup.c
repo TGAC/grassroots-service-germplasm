@@ -16,6 +16,7 @@
 #include "string_utils.h"
 #include "address.h"
 #include "geocoder_util.h"
+#include "country_codes.h"
 
 
 /*
@@ -354,12 +355,44 @@ static bool ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *
 bool ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p)
 {
 	bool got_location_flag = false;
+	Address *address_p = NULL;
 	const char *town_s = GetJSONString (src_p, S_TOWN_S);
 	const char *county_s = GetJSONString (src_p, S_COUNTY_S);
 	const char *country_s = GetJSONString (src_p, S_COUNTRY_S);
 	const char *postcode_s = GetJSONString (src_p, S_POSTCODE_S);
 	const char *country_code_s = GetJSONString (src_p, S_COUNTRY_CODE_S);
-	Address *address_p = AllocateAddress (town_s, county_s, country_s, postcode_s, country_code_s, NULL);
+
+	/*
+	 * Make sure the country code is the 2 digit ISO Alpha-2 code
+	 */
+	if (country_code_s)
+		{
+			const size_t l = strlen (country_code_s);
+
+			switch (l)
+				{
+					case 3:
+						{
+							const Country *country_p = FindCountryByAlpha3Code (country_code_s);
+
+							if (country_p)
+								{
+									country_code_s = country_p -> co_alpha_2_code_s;
+								}
+						}
+						break;
+
+					case 2:
+						break;
+
+					default:
+						country_code_s = NULL;
+						break;
+				}		/* switch (l) */
+
+		}		/* if (country_code_s) */
+
+	address_p = AllocateAddress (town_s, county_s, country_s, postcode_s, country_code_s, NULL);
 
 	if (address_p)
 		{
