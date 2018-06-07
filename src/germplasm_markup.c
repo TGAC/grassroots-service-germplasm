@@ -39,6 +39,14 @@ static int ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *d
  */
 static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p);
 
+static bool AddDarwinCoreDetails (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
+
+static bool AddDarwinCoreElementByValue (const json_t *src_p, const char *src_value_s, json_t *dest_p, json_t *dest_context_p, const char *key_s, const char * context_element_url_s);
+
+static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_s, json_t *dest_p, json_t *dest_context_p, const char *key_s, const char * context_element_url_s);
+
+static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
+
 
 static const char * const S_TOWN_S = "City";
 static const char * const S_COUNTY_S = "NationalRegion";
@@ -166,13 +174,19 @@ bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p)
 								{
 									if (ConvertBreederAddress (src_p, dest_p, dest_context_p) >= 0)
 										{
-											success_flag = true;
+											if (AddDarwinCoreDetails (src_p, dest_p, dest_context_p))
+												{
+
+													success_flag = true;
+												}
 										}
 
 								}
+
 						}		/* if (ConvertSeason (src_p, dest_p)) */
 
 				}		/* if (ConvertSeason (src_p, dest_p, dest_context_p)) */
+
 		}
 
 	return success_flag;
@@ -465,6 +479,118 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 		}
 
 	return res;
+}
+
+
+
+static bool AddDarwinCoreDetails (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
+{
+	bool success_flag = false;
+
+	if (AddDarwinCoreGenusAndSpecies (src_p, dest_p, dest_context_p))
+		{
+			if (AddDarwinCoreElementByKey (src_p, "AccYear", dest_p, dest_context_p, "dwc:year", "http://rs.tdwg.org/dwc/terms/year"))
+				{
+					if (AddDarwinCoreElementByKey (src_p, "CommonName", dest_p, dest_context_p, "dwc:vernacularName", "http://rs.tdwg.org/dwc/terms/vernacularName"))
+						{
+							success_flag = true;
+						}		/* if (AddDarwinCoreElement (src_p, "CommonName", dest_p, dest_context_p, "dwc:vernacularName", "http://rs.tdwg.org/dwc/terms/vernacularName")) */
+
+				}		/* if (AddDarwinCoreElement (src_p, "AccYear", dest_p, dest_context_p, "dwc:year", "http://rs.tdwg.org/dwc/terms/year")) */
+
+		}		/* if (AddDarwinCoreGenusAndSpecies (src_p, dest_p, dest_context_p)) */
+
+
+	return success_flag;
+}
+
+
+static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
+{
+	bool success_flag = false;
+	const char *genus_s = GetJSONString (src_p, "Genus");
+
+	if (genus_s)
+		{
+			if (AddDarwinCoreElementByValue (src_p, genus_s, dest_p, dest_context_p, "dwc:genus", "http://rs.tdwg.org/dwc/terms/genus"))
+				{
+					const char *species_s = GetJSONString (src_p, "Species");
+
+					if (species_s)
+						{
+							char *genus_and_species_s = ConcatenateVarargsStrings (genus_s, " ", species_s, NULL);
+
+							if (genus_and_species_s)
+								{
+									if (AddDarwinCoreElementByValue (src_p, genus_and_species_s, dest_p, dest_context_p, "dwc:scientificName", "http://rs.tdwg.org/dwc/terms/scientificName"))
+										{
+											success_flag = true;
+										}
+
+									FreeCopiedString (genus_and_species_s);
+								}		/* if (genus_and_species_s) */
+
+						}		/* if (species_s) */
+					else
+						{
+							success_flag = true;
+						}
+
+				}		/* if (AddDarwinCoreElementByValue (src_p, genus_s, dest_p, dest_context_p, "dwc:genus", "http://rs.tdwg.org/dwc/terms/genus")) */
+
+		}		/* if (genus_s) */
+	else
+		{
+			success_flag = true;
+		}
+
+
+	return success_flag;
+}
+
+
+static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_s, json_t *dest_p, json_t *dest_context_p, const char *key_s, const char * context_element_url_s)
+{
+	bool success_flag = false;
+	const char *value_s = GetJSONString (src_p, src_key_s);
+
+	if (value_s)
+		{
+			success_flag = AddDarwinCoreElementByValue (src_p, value_s, dest_p, dest_context_p, key_s, context_element_url_s);
+		}
+	else
+		{
+			/* no term is set */
+			success_flag = true;
+		}
+
+	return success_flag;
+}
+
+
+static bool AddDarwinCoreElementByValue (const json_t *src_p, const char *src_value_s, json_t *dest_p, json_t *dest_context_p, const char *key_s, const char * context_element_url_s)
+{
+	bool success_flag = false;
+
+	if (AddOntologyContextTerm (dest_context_p, key_s, context_element_url_s, true))
+		{
+			if (json_object_set_new (dest_p, key_s, json_string (src_value_s)) == 0)
+				{
+					success_flag = true;
+				}		/* if (json_object_iter_set_new (dest_p, key_s, json_string (value_s)) == 0) */
+			else
+				{
+					PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to add \"%s\" = \"%s\"", key_s, src_value_s);
+				}
+
+		}		/* if (AddOntologyContextTerm (dest_context_p, key_s, context_element_url_s, true)) */
+	else
+		{
+			PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_context_p, "Failed to add ontology context term for \"%s\" and \"%s\"", key_s, context_element_url_s);
+		}
+
+	return success_flag;
+
 }
 
 
