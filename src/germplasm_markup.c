@@ -41,12 +41,10 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 
 static bool AddDarwinCoreDetails (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
 
-static bool AddDarwinCoreElementByValue (const json_t *src_p, const char *src_value_s, json_t *dest_p, json_t *dest_context_p, const char *key_s, const char * context_element_url_s);
+static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s);
 
-static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_s, json_t *dest_p, json_t *dest_context_p, const char *key_s, const char * context_element_url_s);
 
-static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
-
+static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p);
 
 static const char * const S_TOWN_S = "City";
 static const char * const S_COUNTY_S = "NationalRegion";
@@ -487,32 +485,36 @@ static bool AddDarwinCoreDetails (const json_t *src_p, json_t *dest_p, json_t *d
 {
 	bool success_flag = false;
 
-	if (AddDarwinCoreGenusAndSpecies (src_p, dest_p, dest_context_p))
+	if (AddOntologyContextTerm (dest_context_p, "dwc", "http://rs.tdwg.org/dwc/terms/", false))
 		{
-			if (AddDarwinCoreElementByKey (src_p, "AccYear", dest_p, dest_context_p, "dwc:year", "http://rs.tdwg.org/dwc/terms/year"))
-				{
-					if (AddDarwinCoreElementByKey (src_p, "CommonName", dest_p, dest_context_p, "dwc:vernacularName", "http://rs.tdwg.org/dwc/terms/vernacularName"))
-						{
-							success_flag = true;
-						}		/* if (AddDarwinCoreElement (src_p, "CommonName", dest_p, dest_context_p, "dwc:vernacularName", "http://rs.tdwg.org/dwc/terms/vernacularName")) */
+			if (AddDarwinCoreGenusAndSpecies (src_p, dest_p))
+					{
+						if (AddDarwinCoreElementByKey (src_p, "AccYear", dest_p, "dwc:year"))
+							{
+								if (AddDarwinCoreElementByKey (src_p, "CommonName", dest_p, "dwc:vernacularName"))
+									{
+										success_flag = true;
+									}		/* if (AddDarwinCoreElement (src_p, "CommonName", dest_p, dest_context_p, "dwc:vernacularName", "http://rs.tdwg.org/dwc/terms/vernacularName")) */
 
-				}		/* if (AddDarwinCoreElement (src_p, "AccYear", dest_p, dest_context_p, "dwc:year", "http://rs.tdwg.org/dwc/terms/year")) */
+							}		/* if (AddDarwinCoreElement (src_p, "AccYear", dest_p, dest_context_p, "dwc:year", "http://rs.tdwg.org/dwc/terms/year")) */
 
-		}		/* if (AddDarwinCoreGenusAndSpecies (src_p, dest_p, dest_context_p)) */
+					}		/* if (AddDarwinCoreGenusAndSpecies (src_p, dest_p)) */
+
+		}		/* if (AddOntologyContextTerm (dest_context_p, "dwc", "http://rs.tdwg.org/dwc/terms/", false)) */
 
 
 	return success_flag;
 }
 
 
-static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
+static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p)
 {
 	bool success_flag = false;
 	const char *genus_s = GetJSONString (src_p, "Genus");
 
 	if (genus_s)
 		{
-			if (AddDarwinCoreElementByValue (src_p, genus_s, dest_p, dest_context_p, "dwc:genus", "http://rs.tdwg.org/dwc/terms/genus"))
+			if (json_object_set_new (dest_p, "dwc:genus", json_string (genus_s)) == 0)
 				{
 					const char *species_s = GetJSONString (src_p, "Species");
 
@@ -522,13 +524,21 @@ static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p, j
 
 							if (genus_and_species_s)
 								{
-									if (AddDarwinCoreElementByValue (src_p, genus_and_species_s, dest_p, dest_context_p, "dwc:scientificName", "http://rs.tdwg.org/dwc/terms/scientificName"))
+									if (json_object_set_new (dest_p, "dwc:scientificName", json_string (genus_and_species_s)) == 0)
 										{
 											success_flag = true;
+										}
+									else
+										{
+											PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to add dwc:scientificName = \"%s\"", genus_and_species_s);
 										}
 
 									FreeCopiedString (genus_and_species_s);
 								}		/* if (genus_and_species_s) */
+							else
+								{
+									PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to concatenate \"%s\" and \"%s\"", genus_s, species_s);
+								}
 
 						}		/* if (species_s) */
 					else
@@ -536,7 +546,11 @@ static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p, j
 							success_flag = true;
 						}
 
-				}		/* if (AddDarwinCoreElementByValue (src_p, genus_s, dest_p, dest_context_p, "dwc:genus", "http://rs.tdwg.org/dwc/terms/genus")) */
+				}		/* if (json_object_set_new (src_p, "dwc:genus", json_string (genus_s)) == 0) */
+			else
+				{
+					PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to add dwc:genus = \"%s\"", genus_s);
+				}
 
 		}		/* if (genus_s) */
 	else
@@ -549,14 +563,21 @@ static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p, j
 }
 
 
-static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_s, json_t *dest_p, json_t *dest_context_p, const char *key_s, const char * context_element_url_s)
+static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s)
 {
 	bool success_flag = false;
 	const char *value_s = GetJSONString (src_p, src_key_s);
 
 	if (value_s)
 		{
-			success_flag = AddDarwinCoreElementByValue (src_p, value_s, dest_p, dest_context_p, key_s, context_element_url_s);
+			if (json_object_set_new (dest_p, dest_key_s, json_string (value_s)) == 0)
+				{
+					success_flag = true;
+				}		/* if (json_object_set_new (dest_p, key_s, json_string (value_s)) == 0) */
+			else
+				{
+					PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to add \"%s\" = \"%s\"", dest_key_s, value_s);
+				}
 		}
 	else
 		{
@@ -567,31 +588,6 @@ static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_
 	return success_flag;
 }
 
-
-static bool AddDarwinCoreElementByValue (const json_t *src_p, const char *src_value_s, json_t *dest_p, json_t *dest_context_p, const char *key_s, const char * context_element_url_s)
-{
-	bool success_flag = false;
-
-	if (AddOntologyContextTerm (dest_context_p, key_s, context_element_url_s, true))
-		{
-			if (json_object_set_new (dest_p, key_s, json_string (src_value_s)) == 0)
-				{
-					success_flag = true;
-				}		/* if (json_object_iter_set_new (dest_p, key_s, json_string (value_s)) == 0) */
-			else
-				{
-					PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to add \"%s\" = \"%s\"", key_s, src_value_s);
-				}
-
-		}		/* if (AddOntologyContextTerm (dest_context_p, key_s, context_element_url_s, true)) */
-	else
-		{
-			PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_context_p, "Failed to add ontology context term for \"%s\" and \"%s\"", key_s, context_element_url_s);
-		}
-
-	return success_flag;
-
-}
 
 
 static json_t *CreateOrGetContextNode (json_t *root_p)
