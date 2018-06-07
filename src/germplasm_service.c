@@ -197,9 +197,9 @@ static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *servi
 
 			InitSharedType (&def);
 
-			def.st_string_value_s = (char *) GS_SEARCH_S;
+			def.st_string_value_s = (char *) "";
 
-			if ((param_p = EasyCreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEARCH.npt_type, GS_SEARCH.npt_name_s, "Search", "The value to search SeedStor for", def, PL_ALL)) != NULL)
+			if ((param_p = EasyCreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEARCH.npt_type, GS_SEARCH.npt_name_s, "Search", "The value to search SeedStor for. This can be the Watkins ID, accession name, etc.", def, PL_ALL)) != NULL)
 				{
 					return param_set_p;
 				}
