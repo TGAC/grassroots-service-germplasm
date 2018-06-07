@@ -412,9 +412,8 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 
 	InitSharedType (&search_value);
 
-	if (GetParameterValueFromParameterSet (param_set_p, GS_SEED_DETAILS.npt_name_s, &search_value, true))
+	if (GetParameterValueFromParameterSet (param_set_p, GS_SEARCH.npt_name_s, &search_value, true))
 		{
-
 			if (search_value.st_string_value_s)
 				{
 					/* We only have one task */
@@ -426,7 +425,7 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 							const char *var_s = "query";
 
 							/* Generate the REST API address */
-							char *api_url_s = ConcatenateVarargsStrings (data_p -> gsd_seedstor_api_s, "?", var_s, "=", search_value.st_string_value_s, NULL);
+							char *api_url_s = ConcatenateVarargsStrings (data_p -> gsd_seedstor_api_s, api_page_s, "?", var_s, "=", search_value.st_string_value_s, NULL);
 
 							if (api_url_s)
 								{
@@ -455,11 +454,14 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 																			if (json_is_array (results_p))
 																				{
 																					size_t i;
-																					json_t *raw_result_p;
 																					ServiceJob *job_p = GetServiceJobFromServiceJobSet (service_p -> se_jobs_p, 0);
+																					const size_t num_results = json_array_size (results_p);
+																					size_t num_converted = 0;
+																					OperationStatus status;
 
-																					json_array_foreach (results_p, i, raw_result_p)
+																					for (i = 0; i < num_results; ++ i)
 																						{
+																							const json_t *raw_result_p = json_array_get (results_p, i);
 																							/*
 																							 * We should now have the Seedstor results,
 																							 * so let's mark them up
@@ -468,11 +470,27 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 
 																							if (marked_up_result_p)
 																								{
-																									if (AddResultToServiceJob (job_p, marked_up_result_p))
-																										{
+																									json_t *job_result_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, search_value.st_string_value_s, marked_up_result_p);
 
+																									if (job_result_p)
+																										{
+																											if (AddResultToServiceJob (job_p, job_result_p))
+																												{
+																													++ num_converted;
+																												}
+																											else
+																												{
+																													PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, job_result_p, "AddResultToServiceJob failed");
+																													json_decref (job_result_p);
+																												}
+
+																										}		/* if (job_result_p) */
+																									else
+																										{
+																											PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, job_result_p, "GetResourceAsJSONByParts failed for query \"%s\"", search_value.st_string_value_s);
 																										}
 
+																									json_decref (marked_up_result_p);
 																								}		/* if (marked_up_result_p) */
 																							else
 																								{
@@ -482,12 +500,28 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 
 																						}		/* json_array_forech (results_p, i, result_p) */
 
+																					if (num_converted == num_results)
+																						{
+																							status = OS_SUCCEEDED;
+																						}
+																					else if (num_converted == 0)
+																						{
+																							status = OS_FAILED;
+																						}
+																					else
+																						{
+																							status = OS_PARTIALLY_SUCCEEDED;
+																						}
+
+																					SetServiceJobStatus (job_p, status);
+
 																				}		/* if (json_is_array (results_p)) */
 																			else
 																				{
 																					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Results are not a JSON array \"%s\"", results_s);
 																				}
 
+																			json_decref (results_p);
 																		}		/* if (results_p) */
 																	else
 																		{
@@ -540,7 +574,7 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 		}
 	else
 		{
-			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to get %s parameter value", GS_SEED_DETAILS.npt_name_s);
+			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to get %s parameter value", GS_SEARCH.npt_name_s);
 		}
 
 	return service_p -> se_jobs_p;

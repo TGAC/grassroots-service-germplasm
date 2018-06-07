@@ -34,7 +34,7 @@ INCLUDES := \
 	
 	
 SRCS 	:= \
-	country_codes.c \
+	germplasm_country_codes.c \
 	germplasm_markup.c \
 	germplasm_service.c \
 	germplasm_service_data.c \

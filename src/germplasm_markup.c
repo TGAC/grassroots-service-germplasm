@@ -6,6 +6,7 @@
  */
 
 
+#include <germplasm_country_codes.h>
 #include <string.h>
 
 #include "germplasm_markup.h"
@@ -16,7 +17,6 @@
 #include "string_utils.h"
 #include "address.h"
 #include "geocoder_util.h"
-#include "country_codes.h"
 
 
 /*
@@ -30,11 +30,14 @@ static bool ConvertSeason (const json_t *src_p, json_t *dest_p, json_t *dest_con
 static bool ConvertCountry (const json_t *src_p, json_t *dest_p);
 
 
-static bool ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
+static int ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
 
-static bool ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
+static int ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
 
-static bool ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p);
+/*
+ * @return 1 on address found, 0 on no address to convert, -1 on error
+ */
+static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p);
 
 
 static const char * const S_TOWN_S = "City";
@@ -159,11 +162,11 @@ bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p)
 				{
 					if (ConvertCountry (src_p, dest_p))
 						{
-							if (ConvertDonorAddress (src_p, dest_p, dest_context_p))
+							if (ConvertDonorAddress (src_p, dest_p, dest_context_p) >= 0)
 								{
-									if (ConvertBreederAddress (src_p, dest_p, dest_context_p))
+									if (ConvertBreederAddress (src_p, dest_p, dest_context_p) >= 0)
 										{
-
+											success_flag = true;
 										}
 
 								}
@@ -182,15 +185,16 @@ json_t *ConvertSeedstorResultToGrassrootsMarkUp (const json_t *src_p, GermplasmS
 
 	if (dest_p)
 		{
-			if (!ConvertCorePassportData (src_p, dest_p))
+			if (ConvertCorePassportData (src_p, dest_p))
 				{
-					json_decref (dest_p);
-					dest_p = NULL;
+					return dest_p;
 				}
+
+			json_decref (dest_p);
 		}
 
 
-	return dest_p;
+	return NULL;
 }
 
 
@@ -202,7 +206,7 @@ json_t *ConvertSeedstorResultToGrassrootsMarkUp (const json_t *src_p, GermplasmS
 static bool ConvertSeason (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
 {
 	bool success_flag = false;
-	const char *season_s = GetJSONString (src_p, "Sow Season");
+	const char *season_s = GetJSONString (src_p, "SowSeason");
 
 	if (season_s)
 		{
@@ -253,7 +257,7 @@ static bool ConvertSeason (const json_t *src_p, json_t *dest_p, json_t *dest_con
 static bool ConvertCountry (const json_t *src_p, json_t *dest_p)
 {
 	bool success_flag = false;
-	const char *country_s = GetJSONString (src_p, "Country of Origin");
+	const char *country_s = GetJSONString (src_p, "Country");
 
 	if (country_s)
 		{
@@ -324,9 +328,17 @@ static bool ConvertCountry (const json_t *src_p, json_t *dest_p)
 		"CountryCode": "GBE"
 	}
  */
-static bool ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
+static int ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
 {
-	return ConvertAddress (src_p, "DonorAddress", dest_p, dest_context_p);
+	int res = 0;
+	const json_t *breeder_address_src_p = json_object_get (src_p, "donorAddress");
+
+	if (breeder_address_src_p)
+		{
+			res = ConvertAddress (breeder_address_src_p, "DonorAddress", dest_p, dest_context_p);
+		}
+
+	return res;
 }
 
 
@@ -346,15 +358,24 @@ static bool ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *de
 		"CountryCode": "SWE"
 	}
  */
-static bool ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
+static int ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
 {
-	return ConvertAddress (src_p, "BreederAddress", dest_p, dest_context_p);
+	int res = 0;
+	const json_t *breeder_address_src_p = json_object_get (src_p, "breederAddress");
+
+	if (breeder_address_src_p)
+		{
+			res = ConvertAddress (breeder_address_src_p, "BreederAddress", dest_p, dest_context_p);
+		}
+
+	return res;
 }
 
 
-bool ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p)
+static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p)
 {
-	bool got_location_flag = false;
+	int res = -1;
+
 	Address *address_p = NULL;
 	const char *town_s = GetJSONString (src_p, S_TOWN_S);
 	const char *county_s = GetJSONString (src_p, S_COUNTY_S);
@@ -362,72 +383,90 @@ bool ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p
 	const char *postcode_s = GetJSONString (src_p, S_POSTCODE_S);
 	const char *country_code_s = GetJSONString (src_p, S_COUNTRY_CODE_S);
 
-	/*
-	 * Make sure the country code is the 2 digit ISO Alpha-2 code
-	 */
-	if (country_code_s)
+	/* Do we have any valid entries? */
+	if ((!IsStringEmpty (town_s)) || (!IsStringEmpty (county_s)) || (!IsStringEmpty (country_s)) || (!IsStringEmpty (country_code_s)) || (!IsStringEmpty (postcode_s)))
 		{
-			const size_t l = strlen (country_code_s);
-
-			switch (l)
+			/*
+			 * Make sure the country code is the 2 digit ISO Alpha-2 code
+			 */
+			if (country_code_s)
 				{
-					case 3:
-						{
-							const Country *country_p = FindCountryByAlpha3Code (country_code_s);
+					const size_t l = strlen (country_code_s);
 
-							if (country_p)
+					switch (l)
+						{
+							case 3:
 								{
-									country_code_s = country_p -> co_alpha_2_code_s;
+									const Country *country_p = FindCountryByAlpha3Code (country_code_s);
+
+									if (country_p)
+										{
+											country_code_s = country_p -> co_alpha_2_code_s;
+										}
 								}
-						}
-						break;
+								break;
 
-					case 2:
-						break;
+							case 2:
+								break;
 
-					default:
-						country_code_s = NULL;
-						break;
-				}		/* switch (l) */
+							default:
+								country_code_s = NULL;
+								break;
+						}		/* switch (l) */
 
-		}		/* if (country_code_s) */
+				}		/* if (country_code_s) */
 
-	address_p = AllocateAddress (town_s, county_s, country_s, postcode_s, country_code_s, NULL);
+			address_p = AllocateAddress (town_s, county_s, country_s, postcode_s, country_code_s, NULL);
 
-	if (address_p)
-		{
-			if (DetermineGPSLocationForAddress (address_p, NULL))
+			if (address_p)
 				{
-					/*
-					 * The address now has GPS coordinates so we need to add the
-					 * appropriate location data to the JSON object.
-					 */
-					json_t *address_json_p = GetAddressAsJSON (address_p);
-
-					if (address_json_p)
+					if (DetermineGPSLocationForAddress (address_p, NULL))
 						{
-							got_location_flag = true;
-						}
+							/*
+							 * The address now has GPS coordinates so we need to add the
+							 * appropriate location data to the JSON object.
+							 */
+							json_t *address_json_p = GetAddressAsJSON (address_p);
+
+							if (address_json_p)
+								{
+									if (json_object_set_new (dest_p, dest_key_s, address_json_p) == 0)
+										{
+											res = 1;
+										}
+									else
+										{
+											PrintJSONToErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, address_json_p, "Failed to add address with \"%s\"", dest_key_s);
+										}
+								}
+							else
+								{
+									PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "ConvertAddressToJSON failed for \"%s\"", dest_key_s);
+								}
+
+						}		/* if (DetermineGPSLocationForAddress (address_p)) */
 					else
 						{
-							PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "ConvertAddressToJSON failed for \"%s\"", dest_key_s);
+							PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "DetermineGPSLocationForAddress failed for \"%s\"", dest_key_s);
 						}
 
-				}		/* if (DetermineGPSLocationForAddress (address_p)) */
+					FreeAddress (address_p);
+				}		/* if (address_p) */
 			else
 				{
-					PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "DetermineGPSLocationForAddress failed for \"%s\"", dest_key_s);
+					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate Address for \"%s\"", dest_key_s);
 				}
 
-			FreeAddress (address_p);
-		}		/* if (address_p) */
+		}		/* if ((!IsStringEmpty (town_s)) || (!IsStringEmpty (county_s)) || (!IsStringEmpty (country_s)) || (!IsStringEmpty (country_code_s)) || (!IsStringEmpty (postcode_s))) */
 	else
 		{
-			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate Address for \"%s\"", dest_key_s);
+			PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "No address elements are set");
+			res = 0;
 		}
 
-	return got_location_flag;
+	return res;
 }
+
 
 static json_t *CreateOrGetContextNode (json_t *root_p)
 {
