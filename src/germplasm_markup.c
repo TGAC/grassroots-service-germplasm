@@ -389,6 +389,7 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 	int res = -1;
 
 	Address *address_p = NULL;
+	const char *street_s = NULL;
 	const char *town_s = GetJSONString (src_p, S_TOWN_S);
 	const char *county_s = GetJSONString (src_p, S_COUNTY_S);
 	const char *country_s = GetJSONString (src_p, S_COUNTRY_S);
@@ -428,7 +429,7 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 
 				}		/* if (country_code_s) */
 
-			address_p = AllocateAddress (town_s, county_s, country_s, postcode_s, country_code_s, NULL);
+			address_p = AllocateAddress (street_s, town_s, county_s, country_s, postcode_s, country_code_s, NULL);
 
 			if (address_p)
 				{
