@@ -23,6 +23,11 @@
  * STATIC DECLARATIONS
  */
 
+static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p);
+
+static bool ConvertTaxonomyData (const json_t *src_p, json_t *dest_p);
+
+
 static json_t *CreateOrGetContextNode (json_t *root_p);
 
 static bool ConvertSeason (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
@@ -43,9 +48,11 @@ static bool AddDarwinCoreDetails (const json_t *src_p, json_t *dest_p, json_t *d
 
 static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s);
 
+static bool ConvertPloidy (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
 
 static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p);
 
+static const char * const S_NAME_S = "InstituteName";
 static const char * const S_TOWN_S = "City";
 static const char * const S_COUNTY_S = "NationalRegion";
 static const char * const S_COUNTRY_S = "Country";
@@ -56,6 +63,48 @@ static const char * const S_POSTCODE_S = "PostZipCode";
 /*
  * DEFINITIONS
  */
+
+
+json_t *ConvertSeedstorResultToGrassrootsMarkUp (const json_t *src_p, GermplasmServiceData *data_p)
+{
+	json_t *dest_p = json_object ();
+
+	if (dest_p)
+		{
+			if (ConvertCorePassportData (src_p, dest_p))
+				{
+					if (ConvertTaxonomyData (src_p, dest_p))
+						{
+							return dest_p;
+						}		/* if (ConvertTaxonomyData (src_p, dest_p)) */
+
+				}		/* if (ConvertCorePassportData (src_p, dest_p)) */
+
+			json_decref (dest_p);
+		}		/* if (dest_p) */
+
+	return NULL;
+}
+
+
+
+static bool ConvertTaxonomyData (const json_t *src_p, json_t *dest_p)
+{
+	bool success_flag = false;
+	json_t *dest_context_p = CreateOrGetContextNode (dest_p);
+
+	if (dest_context_p)
+		{
+			if (ConvertPloidy (src_p, dest_p, dest_context_p))
+				{
+
+					success_flag = true;
+				}		/* if (ConvertPloidy (src_p, dest_p, dest_context_p)) */
+
+		}
+
+	return success_flag;
+}
 
 
 /*
@@ -157,7 +206,7 @@ static const char * const S_POSTCODE_S = "PostZipCode";
  * Peduncle filling: 1 - Hollow, very thin walled.
  * Ear Density: 3 - Lax (3.9 -4.4 mm)
  */
-bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p)
+static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p)
 {
 	bool success_flag = false;
 	json_t *dest_context_p = CreateOrGetContextNode (dest_p);
@@ -191,23 +240,10 @@ bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p)
 }
 
 
-json_t *ConvertSeedstorResultToGrassrootsMarkUp (const json_t *src_p, GermplasmServiceData *data_p)
-{
-	json_t *dest_p = json_object ();
 
-	if (dest_p)
-		{
-			if (ConvertCorePassportData (src_p, dest_p))
-				{
-					return dest_p;
-				}
-
-			json_decref (dest_p);
-		}
+static bool ConvertTaxonomyData (const json_t *src_p, json_t *dest_p);
 
 
-	return NULL;
-}
 
 
 
@@ -389,7 +425,7 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 	int res = -1;
 
 	Address *address_p = NULL;
-	const char *street_s = NULL;
+	const char *name_s = GetJSONString (src_p, S_NAME_S);
 	const char *town_s = GetJSONString (src_p, S_TOWN_S);
 	const char *county_s = GetJSONString (src_p, S_COUNTY_S);
 	const char *country_s = GetJSONString (src_p, S_COUNTRY_S);
@@ -397,7 +433,7 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 	const char *country_code_s = GetJSONString (src_p, S_COUNTRY_CODE_S);
 
 	/* Do we have any valid entries? */
-	if ((!IsStringEmpty (town_s)) || (!IsStringEmpty (county_s)) || (!IsStringEmpty (country_s)) || (!IsStringEmpty (country_code_s)) || (!IsStringEmpty (postcode_s)))
+	if ((!IsStringEmpty (name_s)) || (!IsStringEmpty (town_s)) || (!IsStringEmpty (county_s)) || (!IsStringEmpty (country_s)) || (!IsStringEmpty (country_code_s)) || (!IsStringEmpty (postcode_s)))
 		{
 			/*
 			 * Make sure the country code is the 2 digit ISO Alpha-2 code
@@ -429,7 +465,7 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 
 				}		/* if (country_code_s) */
 
-			address_p = AllocateAddress (street_s, town_s, county_s, country_s, postcode_s, country_code_s, NULL);
+			address_p = AllocateAddress (name_s, NULL, town_s, county_s, country_s, postcode_s, country_code_s, NULL);
 
 			if (address_p)
 				{
@@ -589,6 +625,30 @@ static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_
 	return success_flag;
 }
 
+
+
+static bool ConvertPloidy (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
+{
+	bool success_flag = false;
+	const char *ploidy_s = GetJSONString (src_p, "Ploidy");
+
+	if (ploidy_s)
+		{
+			if (json_object_set_new (dest_p, "ploidy", json_string (ploidy_s)) == 0)
+				{
+					if (AddOntologyContextTerm (dest_context_p, "ploidy", "http://purl.obolibrary.org/obo/PATO_0001374", true))
+						{
+							success_flag = true;
+						}
+				}
+		}		/* if (ploidy_s) */
+	else
+		{
+			success_flag = true;
+		}
+
+	return success_flag;
+}
 
 
 static json_t *CreateOrGetContextNode (json_t *root_p)
