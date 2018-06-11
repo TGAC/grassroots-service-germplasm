@@ -48,9 +48,10 @@ static bool AddDarwinCoreDetails (const json_t *src_p, json_t *dest_p, json_t *d
 
 static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s);
 
-static bool ConvertPloidy (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
-
 static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p);
+
+static bool ConvertTerm (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s, json_t *dest_context_p, const char *context_url_s);
+
 
 static const char * const S_NAME_S = "InstituteName";
 static const char * const S_TOWN_S = "City";
@@ -87,6 +88,37 @@ json_t *ConvertSeedstorResultToGrassrootsMarkUp (const json_t *src_p, GermplasmS
 }
 
 
+static bool ConvertIds (const json_t *src_p, json_t *dest_p)
+{
+	bool success_flag = false;
+	json_t *dest_context_p = CreateOrGetContextNode (dest_p);
+
+	if (dest_context_p)
+		{
+			const char *src_key_s = "AccessionName";
+
+			if (ConvertTerm (src_p, src_key_s, dest_p, "accession", dest_context_p, "http://edamontology.org/data_1093"))
+				{
+					src_key_s = "idPlant";
+
+					if (ConvertTerm (src_p, src_key_s, dest_p, "accession", dest_context_p, "http://edamontology.org/data_1093"))
+						{
+
+						}		/* if (ConvertTerm (src_p, "AccessionName", dest_p, "accession", dest_context_p, "http://edamontology.org/data_1093")) */
+					else
+						{
+							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to convert \"%s\"", src_key_s);
+						}
+				}		/* if (ConvertTerm (src_p, "AccessionName", dest_p, "accession", dest_context_p, "http://edamontology.org/data_1093")) */
+			else
+				{
+					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to convert \"%s\"", src_key_s);
+				}
+		}
+
+	return success_flag;
+}
+
 
 static bool ConvertTaxonomyData (const json_t *src_p, json_t *dest_p)
 {
@@ -95,9 +127,8 @@ static bool ConvertTaxonomyData (const json_t *src_p, json_t *dest_p)
 
 	if (dest_context_p)
 		{
-			if (ConvertPloidy (src_p, dest_p, dest_context_p))
+			if (ConvertTerm (src_p, "Ploidy", dest_p, "ploidy", dest_context_p, "http://purl.obolibrary.org/obo/PATO_0001374"))
 				{
-
 					success_flag = true;
 				}		/* if (ConvertPloidy (src_p, dest_p, dest_context_p)) */
 
@@ -238,12 +269,6 @@ static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p)
 
 	return success_flag;
 }
-
-
-
-static bool ConvertTaxonomyData (const json_t *src_p, json_t *dest_p);
-
-
 
 
 
@@ -626,17 +651,16 @@ static bool AddDarwinCoreElementByKey (const json_t *src_p, const char *src_key_
 }
 
 
-
-static bool ConvertPloidy (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
+static bool ConvertTerm (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s, json_t *dest_context_p, const char *context_url_s)
 {
 	bool success_flag = false;
-	const char *ploidy_s = GetJSONString (src_p, "Ploidy");
+	const char *src_value_s = GetJSONString (src_p, src_key_s);
 
-	if (ploidy_s)
+	if (src_value_s)
 		{
-			if (json_object_set_new (dest_p, "ploidy", json_string (ploidy_s)) == 0)
+			if (json_object_set_new (dest_p, dest_key_s, json_string (src_value_s)) == 0)
 				{
-					if (AddOntologyContextTerm (dest_context_p, "ploidy", "http://purl.obolibrary.org/obo/PATO_0001374", true))
+					if (AddOntologyContextTerm (dest_context_p, dest_key_s, context_url_s, true))
 						{
 							success_flag = true;
 						}
@@ -649,6 +673,7 @@ static bool ConvertPloidy (const json_t *src_p, json_t *dest_p, json_t *dest_con
 
 	return success_flag;
 }
+
 
 
 static json_t *CreateOrGetContextNode (json_t *root_p)

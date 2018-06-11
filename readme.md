@@ -1,4 +1,4 @@
-# The Grassroots Germplasm Research Unit seed service
+﻿# The Grassroots Germplasm Research Unit seed service
 A Grassroots service for converting between seed codes for use with the [Germplasm Research Unit](https://www.jic.ac.uk/germplasm/Cereal%20Collections%20Public%20GRU.html). 
 
 
@@ -6,7 +6,7 @@ A Grassroots service for converting between seed codes for use with the [Germpla
 
 ## Installation
 
-To build this service, you need the [grassroots core](https://github.com/TGAC/grassroots-core) and [grassroots build config](https://github.com/TGAC/grassroots-build-config) installed and configured. 
+To build this service, you need the [grassroots core](https://github.com/TGAC/grassroots-core), [grassroots build config](https://github.com/TGAC/grassroots-build-config) and [grassroots geocoder](https://github.com/TGAC/grassroots-geocoder "") installed and configured. 
 
 The files to build the iRODS service are in the ```build/<platform>``` directory. 
 
