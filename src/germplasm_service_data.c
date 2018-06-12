@@ -33,18 +33,14 @@ bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 	bool success_flag = false;
 	const json_t *service_config_p = data_p -> gsd_base_data.sd_config_p;
 
-	if ((data_p -> gsd_db_url_s = GetJSONString (service_config_p, "database")) != NULL)
-		{
-			if ((data_p -> gsd_table_s = GetJSONString (service_config_p, "table")) != NULL)
-				{
-					success_flag = true;
-				}
-		}
 
 	if ((data_p -> gsd_seedstor_api_s = GetJSONString (service_config_p, "seedstor_api")) != NULL)
 		{
 			success_flag  = true;
 		}
+
+	data_p -> gsd_seed_order_by_plant_id_api_s = GetJSONString (service_config_p, "order_page");
+
 
 	return success_flag;
 }

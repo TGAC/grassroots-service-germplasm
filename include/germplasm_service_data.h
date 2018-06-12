@@ -15,11 +15,13 @@
 typedef struct
 {
 	ServiceData gsd_base_data;
-	const char *gsd_db_url_s;
-	const char *gsd_table_s;
 
 	/** The base URL for the Seedstor api/ */
 	const char *gsd_seedstor_api_s;
+
+	/** The url to order seeds */
+	const char *gsd_seed_order_by_plant_id_api_s;
+
 } GermplasmServiceData;
 
 

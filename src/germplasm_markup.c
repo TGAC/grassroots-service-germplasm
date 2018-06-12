@@ -52,6 +52,7 @@ static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p);
 
 static bool ConvertTerm (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s, json_t *dest_context_p, const char *context_url_s);
 
+static bool ConvertIds (const json_t *src_p, json_t *dest_p, GermplasmServiceData *data_p);
 
 static const char * const S_NAME_S = "InstituteName";
 static const char * const S_TOWN_S = "City";
@@ -76,19 +77,132 @@ json_t *ConvertSeedstorResultToGrassrootsMarkUp (const json_t *src_p, GermplasmS
 				{
 					if (ConvertTaxonomyData (src_p, dest_p))
 						{
-							return dest_p;
+							if (ConvertIds (src_p, dest_p, data_p))
+								{
+									return dest_p;
+								}		/* if (ConvertIds (src_p, dest_p, data_p)) */
+							else
+								{
+									PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, src_p, "ConvertIds failed");
+								}
+
 						}		/* if (ConvertTaxonomyData (src_p, dest_p)) */
+					else
+						{
+							PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, src_p, "ConvertTaxonomyData failed");
+						}
 
 				}		/* if (ConvertCorePassportData (src_p, dest_p)) */
+			else
+				{
+					PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, src_p, "ConvertCorePassportData failed");
+				}
 
 			json_decref (dest_p);
 		}		/* if (dest_p) */
+	else
+		{
+			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate object for marked up result");
+		}
 
 	return NULL;
 }
 
 
-static bool ConvertIds (const json_t *src_p, json_t *dest_p)
+static bool ConvertPlantId (const json_t *src_p, json_t *dest_p, json_t *dest_context_p, GermplasmServiceData *data_p)
+{
+	bool success_flag = false;
+	const char *plant_id_s = GetJSONString (src_p, "idPlant");
+
+	if (plant_id_s)
+		{
+			if (json_object_set_new (dest_p,  "dwc:recordNumber", json_string (plant_id_s)) == 0)
+				{
+					if (data_p -> gsd_seed_order_by_plant_id_api_s)
+						{
+							char *url_s = ConcatenateStrings (data_p -> gsd_seed_order_by_plant_id_api_s, plant_id_s);
+
+							if (url_s)
+								{
+									if (AddOntologyContextTerm (dest_context_p, "so", "http://schema.org", false))
+										{
+											json_t *gru_buy_seed_link_p = json_object ();
+
+											if (gru_buy_seed_link_p)
+												{
+													if (json_object_set_new (gru_buy_seed_link_p, "@type", json_string ("so:checkoutPage")) == 0)
+														{
+															if (json_object_set_new (gru_buy_seed_link_p, "url", json_string (url_s)) == 0)
+																{
+																	if (json_object_set_new (dest_p, "order_link", gru_buy_seed_link_p) == 0)
+																		{
+																			success_flag = true;
+																		}		/* if (json_object_set_new (dest_p, "order_link", gru_buy_seed_link_p) == 0) */
+																	else
+																		{
+																			PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to add \"order_link\": for gru_buy_seed_link_p");
+																		}
+
+																}		/* if (json_object_set_new (gru_buy_seed_link_p, "url", json_string (url_s)) == 0) */
+															else
+																{
+																	PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, gru_buy_seed_link_p, "Failed to add \"@url\": \"%s\"", url_s);
+																}
+
+														}		/* if (json_object_set_new (gru_buy_seed_link_p, "@type", json_string ("so:checkoutPage")) == 0) */
+													else
+														{
+															PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, gru_buy_seed_link_p, "Failed to add \"@type\": \"so:checkoutPage\"");
+														}
+
+													if (!success_flag)
+														{
+															json_decref (gru_buy_seed_link_p);
+														}
+
+												}		/* if (gru_buy_seed_link_p) */
+											else
+												{
+													PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to allocate object for gru_buy_seed_link_p for \"%s\"", plant_id_s);
+												}
+
+										}		/* if (AddOntologyContextTerm (dest_context_p, "so", "http://schema.org", false)) */
+									else
+										{
+											PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_context_p, "Failed to add \"so\": \"http://schema.org\"");
+										}
+
+
+									FreeCopiedString (url_s);
+								}		/* if (url_s) */
+							else
+								{
+									PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to concatenate \"%s\" and \"%s\"", data_p -> gsd_seed_order_by_plant_id_api_s, plant_id_s);
+								}
+
+						}		/* if (data_p -> gsd_seed_order_by_plant_id_api_s) */
+					else
+						{
+							success_flag = true;
+						}
+
+				}		/* if (json_object_set_new (dest_p,  "dwc:recordNumber", json_string (plant_id_s)) == 0) */
+			else
+				{
+					PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to add \"dwc:recordNumber\": \"%s\"", plant_id_s);
+				}
+
+		}		/* if (plant_id_s) */
+	else
+		{
+			success_flag = true;
+		}
+
+	return success_flag;
+}
+
+
+static bool ConvertIds (const json_t *src_p, json_t *dest_p, GermplasmServiceData *data_p)
 {
 	bool success_flag = false;
 	json_t *dest_context_p = CreateOrGetContextNode (dest_p);
@@ -99,11 +213,9 @@ static bool ConvertIds (const json_t *src_p, json_t *dest_p)
 
 			if (ConvertTerm (src_p, src_key_s, dest_p, "accession", dest_context_p, "http://edamontology.org/data_1093"))
 				{
-					src_key_s = "idPlant";
-
-					if (ConvertTerm (src_p, src_key_s, dest_p, "accession", dest_context_p, "http://edamontology.org/data_1093"))
+					if (ConvertPlantId (src_p, dest_p, dest_context_p, data_p))
 						{
-
+							success_flag = true;
 						}		/* if (ConvertTerm (src_p, "AccessionName", dest_p, "accession", dest_context_p, "http://edamontology.org/data_1093")) */
 					else
 						{
@@ -254,7 +366,6 @@ static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p)
 										{
 											if (AddDarwinCoreDetails (src_p, dest_p, dest_context_p))
 												{
-
 													success_flag = true;
 												}
 										}

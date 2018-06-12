@@ -28,8 +28,6 @@
 #include "service.h"
 #include "service_job.h"
 #include "json_tools.h"
-#include "sqlite_tool.h"
-#include "sql_clause.h"
 #include "germplasm_markup.h"
 
 
@@ -67,14 +65,11 @@ static const char *GetGermplasmServiceDesciption (Service *service_p);
 
 static const char *GetGermplasmServiceURI (Service *service_p);
 
-static ParameterSet *GetGermplasmServiceParametersForSimpleDB (Service *service_p, Resource *resource_p, UserDetails *user_p);
 
 static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, Resource *resource_p, UserDetails *user_p);
 
 
 static void ReleaseGermplasmServiceParameters (Service *service_p, ParameterSet *params_p);
-
-static ServiceJobSet *RunGermplasmServiceForSimpleDB (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
 
 
 static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
@@ -85,9 +80,6 @@ static ParameterSet *IsFileForGermplasmService (Service *service_p, Resource *re
 static bool CloseGermplasmService (Service *service_p);
 
 static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p);
-
-
-static LinkedList *GetWhereClauses (const char *key_s, const char *value_s);
 
 
 /*
@@ -211,191 +203,10 @@ static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *servi
 }
 
 
-static ParameterSet *GetGermplasmServiceParametersForSimpleDB (Service *service_p, Resource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
-{
-	ParameterSet *param_set_p = AllocateParameterSet ("Germplasm service parameters", "The parameters used for the Germplasm service");
-
-	if (param_set_p)
-		{
-			LinkedList *options_p = CreateParameterOptionsList ();
-
-			if (options_p)
-				{
-					SharedType def;
-
-					def.st_string_value_s = (char *) GS_STORE_REF_ID_S;
-
-					if (CreateAndAddParameterOption (options_p, def, GS_STORE_REF_ID_DISPLAY_NAME_S, PT_STRING))
-						{
-							def.st_string_value_s = (char *) GS_STORE_CODE_S;
-
-							if (CreateAndAddParameterOption (options_p, def, GS_STORE_CODE_DISPLAY_NAME_S, PT_STRING))
-								{
-									def.st_string_value_s = (char *) GS_PLANT_ID_S;
-
-									if (CreateAndAddParameterOption (options_p, def, GS_PLANT_ID_DISPLAY_NAME_S, PT_STRING))
-										{
-											def.st_string_value_s = (char *) GS_ACCESSION_S;
-
-											if (CreateAndAddParameterOption (options_p, def, GS_ACCESSION_DISPLAY_NAME_S, PT_STRING))
-												{
-													Parameter *param_p;
-													ServiceData *data_p = service_p -> se_data_p;
-
-													def.st_string_value_s = (char *) GS_STORE_CODE_S;
-
-													if ((param_p = CreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEED_DETAILS.npt_type, false, GS_SEED_DETAILS.npt_name_s, "Seed data",
-														"The different seed details", options_p,
-														def, NULL, NULL,  PL_ALL, NULL)) != NULL)
-														{
-															def.st_string_value_s = "";
-
-															if ((param_p = EasyCreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEED_ID.npt_type, GS_SEED_ID.npt_name_s, "ID",
-																"The value to search for",
-															 def, PL_ALL)) != NULL)
-																{
-																	return param_set_p;
-																}
-														}
-												}
-										}
-								}
-						}
-
-					FreeLinkedList (options_p);
-				}		/* if (options_p) */
-
-			FreeParameterSet (param_set_p);
-		}		/* if (param_set_p) */
-
-	return NULL;
-}
-
-
 static void ReleaseGermplasmServiceParameters (Service * UNUSED_PARAM (service_p), ParameterSet *params_p)
 {
 	FreeParameterSet (params_p);
 }
-
-
-static ServiceJobSet *RunGermplasmServiceForSimpleDB (Service *service_p, ParameterSet *param_set_p, UserDetails * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
-{
-	GermplasmServiceData *data_p = (GermplasmServiceData *) service_p -> se_data_p;
-	SharedType field;
-
-	InitSharedType (&field);
-
-	if (GetParameterValueFromParameterSet (param_set_p, GS_SEED_DETAILS.npt_name_s, &field, true))
-		{
-			SharedType id_value;
-
-			InitSharedType (&id_value);
-
-			if (GetParameterValueFromParameterSet (param_set_p, GS_SEED_ID.npt_name_s, &id_value, true))
-				{
-					/* We only have one task */
-					service_p -> se_jobs_p = AllocateSimpleServiceJobSet (service_p, NULL, "Germplasm results");
-
-					if (service_p -> se_jobs_p)
-						{
-							SQLiteTool *tool_p = AllocateSQLiteTool (data_p -> gsd_db_url_s, SQLITE_OPEN_READONLY, data_p -> gsd_table_s);
-
-							if (tool_p)
-								{
-									LinkedList *where_clauses_p = GetWhereClauses (field.st_string_value_s, id_value.st_string_value_s);
-
-									if (where_clauses_p)
-										{
-											const char *fields_ss [] = { GS_STORE_REF_ID_S, GS_STORE_CODE_S, GS_PLANT_ID_S , NULL };
-											ServiceJob *job_p = GetServiceJobFromServiceJobSet (service_p -> se_jobs_p, 0);
-											char *error_s = NULL;
-											OperationStatus status = OS_STARTED;
-											json_t *results_p = FindMatchingSQLiteDocuments (tool_p, where_clauses_p, fields_ss, &error_s);
-
-											if (results_p)
-												{
-													json_t *row_p;
-													size_t i;
-													const size_t num_rows = json_array_size (results_p);
-													size_t count = 0;
-
-													json_array_foreach (results_p, i, row_p)
-														{
-															char *title_s = ConvertLongToString ((int64) i);
-
-															if (title_s)
-																{
-																	json_t *row_resource_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, title_s, row_p);
-
-																	if (row_resource_p)
-																		{
-																			if (AddResultToServiceJob (job_p, row_resource_p))
-																				{
-																					++ count;
-																				}
-																			else
-																				{
-																					json_decref (row_resource_p);
-																				}
-																		}
-
-																	FreeCopiedString (title_s);
-																}
-
-														}
-
-													if (count == 0)
-														{
-															status = OS_FAILED;
-														}
-													else if (count == num_rows)
-														{
-															status = OS_SUCCEEDED;
-														}
-													else
-														{
-															status = OS_PARTIALLY_SUCCEEDED;
-														}
-
-													json_decref (results_p);
-												}
-											else
-												{
-													status = OS_FAILED;
-													AddErrorToServiceJob (job_p, ERROR_S, error_s);
-
-													FreeSQLiteToolErrorString (tool_p, error_s);
-												}
-
-
-											SetServiceJobStatus (job_p, status);
-
-											FreeLinkedList (where_clauses_p);
-										}		/* if (where_clauses_p) */
-
-									FreeSQLiteTool (tool_p);
-								}		/* if (tool_p) */
-
-						}
-					else
-						{
-							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate ServiceJobSet for %s", GetServiceName (service_p));
-						}
-
-				}
-			else
-				{
-					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to get %s parameter value", GS_SEED_ID.npt_name_s);
-				}
-		}
-	else
-		{
-			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to get %s parameter value", GS_SEED_DETAILS.npt_name_s);
-		}
-
-	return service_p -> se_jobs_p;
-}
-
 
 /*
  * http://seedstor.gru.jic.ac.uk/apisearch-accessionname.php?accessionname=Germany
@@ -662,24 +473,3 @@ static ServiceMetadata *GetGermplasmServiceMetadata (Service * UNUSED_PARAM (ser
 }
 
 
-
-static LinkedList *GetWhereClauses (const char *key_s, const char *value_s)
-{
-	LinkedList *where_clauses_p = AllocateLinkedList (FreeSQLClauseNode);
-
-	if (where_clauses_p)
-		{
-			SQLClauseNode *node_p = AllocateSQLClauseNode (key_s, SQLITE_OP_EQUALS_S, value_s);
-
-			if (node_p)
-				{
-					LinkedListAddTail (where_clauses_p, (ListItem *) node_p);
-
-					return where_clauses_p;
-				}
-
-			FreeLinkedList (where_clauses_p);
-		}
-
-	return NULL;
-}
