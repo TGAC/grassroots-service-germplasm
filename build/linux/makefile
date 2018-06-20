@@ -49,7 +49,6 @@ LDFLAGS += -L$(DIR_JANSSON_LIB) -ljansson -L$(DIR_GRASSROOTS_UTIL_LIB) -l$(GRASS
 
 
 
-
 all:: 
 	make -C $(DIR_GRASSROOTS_GEOCODER_BUILD) all
 	
