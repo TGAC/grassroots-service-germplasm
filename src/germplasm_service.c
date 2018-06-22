@@ -1,18 +1,18 @@
 /*
-** Copyright 2014-2016 The Earlham Institute
-** 
-** Licensed under the Apache License, Version 2.0 (the "License");
-** you may not use this file except in compliance with the License.
-** You may obtain a copy of the License at
-** 
-**     http://www.apache.org/licenses/LICENSE-2.0
-** 
-** Unless required by applicable law or agreed to in writing, software
-** distributed under the License is distributed on an "AS IS" BASIS,
-** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-** See the License for the specific language governing permissions and
-** limitations under the License.
-*/
+ ** Copyright 2014-2016 The Earlham Institute
+ **
+ ** Licensed under the Apache License, Version 2.0 (the "License");
+ ** you may not use this file except in compliance with the License.
+ ** You may obtain a copy of the License at
+ **
+ **     http://www.apache.org/licenses/LICENSE-2.0
+ **
+ ** Unless required by applicable law or agreed to in writing, software
+ ** distributed under the License is distributed on an "AS IS" BASIS,
+ ** WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ ** See the License for the specific language governing permissions and
+ ** limitations under the License.
+ */
 #include <string.h>
 
 #include "jansson.h"
@@ -93,27 +93,27 @@ ServicesArray *GetServices (UserDetails *user_p)
 	if (service_p)
 		{
 			ServicesArray *services_p = AllocateServicesArray (1);
-			
+
 			if (services_p)
 				{		
 					GermplasmServiceData *data_p = AllocateGermplasmServiceData ();
-					
+
 					if (data_p)
 						{
 							if (InitialiseService (service_p,
-								GetGermplasmServiceName,
-								GetGermplasmServiceDesciption,
-								GetGermplasmServiceURI,
-								RunGermplasmServiceForSeedstorAPI,
-								IsFileForGermplasmService,
-								GetGermplasmServiceParametersForSeedstorAPI,
-								ReleaseGermplasmServiceParameters,
-								CloseGermplasmService,
-								NULL,
-								true,
-								SY_SYNCHRONOUS,
-								(ServiceData *) data_p,
-								GetGermplasmServiceMetadata))
+									GetGermplasmServiceName,
+									GetGermplasmServiceDesciption,
+									GetGermplasmServiceURI,
+									RunGermplasmServiceForSeedstorAPI,
+									IsFileForGermplasmService,
+									GetGermplasmServiceParametersForSeedstorAPI,
+									ReleaseGermplasmServiceParameters,
+									CloseGermplasmService,
+									NULL,
+									true,
+									SY_SYNCHRONOUS,
+									(ServiceData *) data_p,
+									GetGermplasmServiceMetadata))
 								{
 									if (ConfigureGermplasmService (data_p))
 										{
@@ -126,7 +126,7 @@ ServicesArray *GetServices (UserDetails *user_p)
 
 					FreeServicesArray (services_p);
 				}
-				
+
 			FreeService (service_p);
 		}
 
@@ -149,7 +149,7 @@ static bool CloseGermplasmService (Service *service_p)
 	GermplasmServiceData *data_p = (GermplasmServiceData *) service_p -> se_data_p;
 
 	FreeGermplasmServiceData (data_p);
-	
+
 	return success_flag;
 }
 
@@ -167,7 +167,7 @@ static const char *GetGermplasmServiceName (Service * UNUSED_PARAM (service_p))
 
 static const char *GetGermplasmServiceDesciption (Service * UNUSED_PARAM (service_p))
 {
-	return "A service to access the Germplasm Research seeds data";
+	return "A service to access the Germplasm Research seeds data at the John Innes Centre.";
 }
 
 
@@ -399,69 +399,129 @@ static ParameterSet *IsFileForGermplasmService (Service * UNUSED_PARAM (service_
 
 
 
-static ServiceMetadata *GetGermplasmServiceMetadata (Service * UNUSED_PARAM (service_p))
+
+
+static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p)
 {
-	const char *term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "operation_0304";
-	SchemaTerm *category_p = AllocateSchemaTerm (term_url_s, "Query and retrieval", "Search or query a data resource and retrieve entries and / or annotation.");
+	const char *term_url_s = CONTEXT_PREFIX_EXPERIMENTAL_FACTOR_ONTOLOGY_S "EFO_0000651 ";
+	SchemaTerm *category_p = AllocateSchemaTerm (term_url_s, "phenotype",
+			"The observable form taken by some character (or group of characters) in an individual or an organism, excluding pathology and disease. "
+			"The detectable outward manifestations of a specific genotype.");
 
 	if (category_p)
 		{
-			ServiceMetadata *metadata_p = AllocateServiceMetadata (category_p, NULL);
+			SchemaTerm *subcategory_p;
 
-			if (metadata_p)
+			term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "operation_0304";
+			subcategory_p = AllocateSchemaTerm (term_url_s, "Query and retrieval", "Search or query a data resource and retrieve entries and / or annotation.");
+
+			if (subcategory_p)
 				{
-					SchemaTerm *input_p;
+					ServiceMetadata *metadata_p = AllocateServiceMetadata (category_p, subcategory_p);
 
-					/* ID */
-					term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "data_2596";
-					input_p = AllocateSchemaTerm (term_url_s, "Catalogue ID", "An identifier of a catalogue of biological resources.");
-
-					if (input_p)
+					if (metadata_p)
 						{
-							if (AddSchemaTermToServiceMetadataInput (metadata_p, input_p))
+							SchemaTerm *input_p;
+
+							term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "data_0968";
+							input_p = AllocateSchemaTerm (term_url_s, "Keyword",
+									"Boolean operators (AND, OR and NOT) and wildcard characters may be allowed. Keyword(s) or phrase(s) used (typically) for text-searching purposes.");
+
+							if (input_p)
 								{
-									SchemaTerm *output_p;
-
-									term_url_s = CONTEXT_PREFIX_EDAM_ONTOLOGY_S "data_2596";
-									output_p = AllocateSchemaTerm (term_url_s, "Catalogue ID", "An identifier of a catalogue of biological resources.");
-
-									if (output_p)
+									if (AddSchemaTermToServiceMetadataInput (metadata_p, input_p))
 										{
-											if (AddSchemaTermToServiceMetadataOutput (metadata_p, output_p))
+											SchemaTerm *output_p;
+
+											/* Place */
+											term_url_s = CONTEXT_PREFIX_SCHEMA_ORG_S "Place";
+											output_p = AllocateSchemaTerm (term_url_s, "Place", "Entities that have a somewhat fixed, physical extension.");
+
+											if (output_p)
 												{
-													return metadata_p;
-												}		/* if (AddSchemaTermToServiceMetadataOutput (metadata_p, output_p)) */
+													if (AddSchemaTermToServiceMetadataOutput (metadata_p, output_p))
+														{
+															/* Date */
+															term_url_s = CONTEXT_PREFIX_SCHEMA_ORG_S "Date";
+															output_p = AllocateSchemaTerm (term_url_s, "Date", "A date value in ISO 8601 date format.");
+
+															if (output_p)
+																{
+																	if (AddSchemaTermToServiceMetadataOutput (metadata_p, output_p))
+																		{
+																			/* Phenotype */
+																			term_url_s = CONTEXT_PREFIX_EXPERIMENTAL_FACTOR_ONTOLOGY_S "EFO_0000651";
+																			output_p = AllocateSchemaTerm (term_url_s, "phenotype", "The observable form taken by some character (or group of characters) "
+																					"in an individual or an organism, excluding pathology and disease. The detectable outward manifestations of a specific genotype.");
+
+																			if (output_p)
+																				{
+																					if (AddSchemaTermToServiceMetadataOutput (metadata_p, output_p))
+																						{
+																							return metadata_p;
+																						}		/* if (AddSchemaTermToServiceMetadataOutput (metadata_p, output_p)) */
+																					else
+																						{
+																							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add output term %s to service metadata", term_url_s);
+																							FreeSchemaTerm (output_p);
+																						}
+
+																				}		/* if (output_p) */
+																			else
+																				{
+																					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate output term %s for service metadata", term_url_s);
+																				}
+																		}		/* if (AddSchemaTermToServiceMetadataOutput (metadata_p, output_p)) */
+																	else
+																		{
+																			PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add output term %s to service metadata", term_url_s);
+																			FreeSchemaTerm (output_p);
+																		}
+
+																}		/* if (output_p) */
+															else
+																{
+																	PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate output term %s for service metadata", term_url_s);
+																}
+
+														}		/* if (AddSchemaTermToServiceMetadataOutput (metadata_p, output_p)) */
+													else
+														{
+															PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add output term %s to service metadata", term_url_s);
+															FreeSchemaTerm (output_p);
+														}
+
+												}		/* if (output_p) */
 											else
 												{
-													PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add output term %s to service metadata", term_url_s);
+													PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate output term %s to service metadata", term_url_s);
 													FreeSchemaTerm (output_p);
 												}
 
-										}		/* if (output_p) */
+										}		/* if (AddSchemaTermToServiceMetadataInput (metadata_p, input_p)) */
 									else
 										{
-											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate output term %s for service metadata", term_url_s);
+											PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add input term %s to service metadata", term_url_s);
+											FreeSchemaTerm (input_p);
 										}
 
-								}		/* if (AddSchemaTermToServiceMetadataInput (metadata_p, input_p)) */
+								}		/* if (input_p) */
 							else
 								{
-									PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to add input term %s to service metadata", term_url_s);
-									FreeSchemaTerm (input_p);
+									PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate input term %s for service metadata", term_url_s);
 								}
 
-						}		/* if (input_p) */
+						}		/* if (metadata_p) */
 					else
 						{
-							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate input term %s for service metadata", term_url_s);
+							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate service metadata");
 						}
 
-				}		/* if (metadata_p) */
+				}		/* if (subcategory_p) */
 			else
 				{
-					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate service metadata");
+					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate sub-category term %s for service metadata", term_url_s);
 				}
-
 
 		}		/* if (category_p) */
 	else
@@ -471,5 +531,4 @@ static ServiceMetadata *GetGermplasmServiceMetadata (Service * UNUSED_PARAM (ser
 
 	return NULL;
 }
-
 
