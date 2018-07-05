@@ -23,7 +23,7 @@
  * STATIC DECLARATIONS
  */
 
-static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p);
+static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p, GermplasmServiceData *data_p);
 
 static bool ConvertTaxonomyData (const json_t *src_p, json_t *dest_p);
 
@@ -35,14 +35,14 @@ static bool ConvertSeason (const json_t *src_p, json_t *dest_p, json_t *dest_con
 static bool ConvertCountry (const json_t *src_p, json_t *dest_p);
 
 
-static int ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
+static int ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p, const char *plant_id_s, GermplasmServiceData *data_p);
 
-static int ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
+static int ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p, const char *plant_id_s, GermplasmServiceData *data_p);
 
 /*
  * @return 1 on address found, 0 on no address to convert, -1 on error
  */
-static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p);
+static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p, const char *plant_id_s, GermplasmServiceData *data_p);
 
 static bool AddDarwinCoreDetails (const json_t *src_p, json_t *dest_p, json_t *dest_context_p);
 
@@ -53,6 +53,10 @@ static bool AddDarwinCoreGenusAndSpecies (const json_t *src_p, json_t *dest_p);
 static bool ConvertTerm (const json_t *src_p, const char *src_key_s, json_t *dest_p, const char *dest_key_s, json_t *dest_context_p, const char *context_url_s);
 
 static bool ConvertIds (const json_t *src_p, json_t *dest_p, GermplasmServiceData *data_p);
+
+
+static bool SetCoordinateFromJSON (Coordinate *coord_p, const json_t *values_p, const char *key_s);
+
 
 static const char * const S_NAME_S = "InstituteName";
 static const char * const S_TOWN_S = "City";
@@ -73,7 +77,7 @@ json_t *ConvertSeedstorResultToGrassrootsMarkUp (const json_t *src_p, GermplasmS
 
 	if (dest_p)
 		{
-			if (ConvertCorePassportData (src_p, dest_p))
+			if (ConvertCorePassportData (src_p, dest_p, data_p))
 				{
 					if (ConvertTaxonomyData (src_p, dest_p))
 						{
@@ -174,7 +178,7 @@ static bool ConvertPlantId (const json_t *src_p, json_t *dest_p, json_t *dest_co
 
 
 									FreeCopiedString (url_s);
-								}		/* if (url_s) */
+								}		/* if (url_static bool SetCoordinateFromJSON (Coordinate *coord_p, const json_t *values_p, const char *key_s)s) */
 							else
 								{
 									PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, dest_p, "Failed to concatenate \"%s\" and \"%s\"", data_p -> gsd_seed_order_by_plant_id_api_s, plant_id_s);
@@ -349,7 +353,7 @@ static bool ConvertTaxonomyData (const json_t *src_p, json_t *dest_p)
  * Peduncle filling: 1 - Hollow, very thin walled.
  * Ear Density: 3 - Lax (3.9 -4.4 mm)
  */
-static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p)
+static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p, GermplasmServiceData *data_p)
 {
 	bool success_flag = false;
 	json_t *dest_context_p = CreateOrGetContextNode (dest_p);
@@ -360,9 +364,11 @@ static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p)
 				{
 					if (ConvertCountry (src_p, dest_p))
 						{
-							if (ConvertDonorAddress (src_p, dest_p, dest_context_p) >= 0)
+							const char *plant_id_s = GetJSONString ("idPlant");
+
+							if (ConvertDonorAddress (src_p, dest_p, dest_context_p, plant_id_s, data_p) >= 0)
 								{
-									if (ConvertBreederAddress (src_p, dest_p, dest_context_p) >= 0)
+									if (ConvertBreederAddress (src_p, dest_p, dest_context_p, plant_id_s, data_p) >= 0)
 										{
 											if (AddDarwinCoreDetails (src_p, dest_p, dest_context_p))
 												{
@@ -512,14 +518,14 @@ static bool ConvertCountry (const json_t *src_p, json_t *dest_p)
 		"CountryCode": "GBE"
 	}
  */
-static int ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
+static int ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p, const char *plant_id_s, GermplasmServiceData *data_p)
 {
 	int res = 0;
 	const json_t *breeder_address_src_p = json_object_get (src_p, "donorAddress");
 
 	if (breeder_address_src_p)
 		{
-			res = ConvertAddress (breeder_address_src_p, "DonorAddress", dest_p, dest_context_p);
+			res = ConvertAddress (breeder_address_src_p, "DonorAddress", dest_p, dest_context_p, data_p);
 		}
 
 	return res;
@@ -542,21 +548,21 @@ static int ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *des
 		"CountryCode": "SWE"
 	}
  */
-static int ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p)
+static int ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *dest_context_p,const char *plant_id_s, GermplasmServiceData *data_p)
 {
 	int res = 0;
 	const json_t *breeder_address_src_p = json_object_get (src_p, "breederAddress");
 
 	if (breeder_address_src_p)
 		{
-			res = ConvertAddress (breeder_address_src_p, "BreederAddress", dest_p, dest_context_p);
+			res = ConvertAddress (breeder_address_src_p, "BreederAddress", dest_p, dest_context_p, data_p);
 		}
 
 	return res;
 }
 
 
-static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p)
+static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *dest_p, json_t *dest_context_p, const char *plant_id_s, GermplasmServiceData *data_p)
 {
 	int res = -1;
 
@@ -567,6 +573,7 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 	const char *country_s = GetJSONString (src_p, S_COUNTRY_S);
 	const char *postcode_s = GetJSONString (src_p, S_POSTCODE_S);
 	const char *country_code_s = GetJSONString (src_p, S_COUNTRY_CODE_S);
+
 
 	/* Do we have any valid entries? */
 	if ((!IsStringEmpty (name_s)) || (!IsStringEmpty (town_s)) || (!IsStringEmpty (county_s)) || (!IsStringEmpty (country_s)) || (!IsStringEmpty (country_code_s)) || (!IsStringEmpty (postcode_s)))
@@ -605,7 +612,20 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 
 			if (address_p)
 				{
-					if (DetermineGPSLocationForAddress (address_p, NULL))
+					bool got_gps_flag = false;
+
+					if (data_p -> gsd_mongo_tool_p)
+						{
+
+
+						}		/* if (data_p -> gsd_mongo_tool_p) */
+
+					if (!got_gps_flag)
+						{
+							got_gps_flag = DetermineGPSLocationForAddress (address_p, NULL);
+						}
+
+					if (got_gps_flag)
 						{
 							/*
 							 * The address now has GPS coordinates so we need to add the
@@ -650,6 +670,117 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 		}
 
 	return res;
+}
+
+
+
+static bool GetCachedGeolocationData (Address *address_p, const char *plant_id_s, const char *address_key_s, MongoTool *mongo_p)
+{
+	bool success_flag = false;
+	json_t *query_p = json_object ();
+
+	if (query_p)
+		{
+			const char * const DB_KEY_S = "key";
+
+			if (json_object_set_new (query_p, DB_KEY_S, json_string (plant_id_s)) == 0)
+				{
+					/*
+					 * check for cached gps coords for this entry
+					 */
+					if (FindMatchingMongoDocumentsByJSON (mongo_p, query_p, NULL))
+						{
+							json_t *docs_p = GetAllExistingMongoResultsAsJSON (mongo_p);
+
+							if (docs_p)
+								{
+									const json_t *data_p = NULL;
+
+									if (json_is_array (docs_p))
+										{
+											const size_t num_docs = json_array_size (docs_p);
+
+											if (num_docs == 1)
+												{
+													data_p = json_array_get (docs_p, 0);
+												}
+											else
+												{
+												}
+
+										}		/* if (json_is_array (docs_p)) */
+									else if (json_is_object (docs_p))
+										{
+											data_p = docs_p;
+										}		/* else if (json_is_object (docs_p)) */
+									else
+										{
+											PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, docs_p, "Not valid object for holding GPS data");
+										}
+
+
+									if (data_p)
+										{
+											const json_t *location_p = json_object_get (data_p, address_key_s);
+
+											if (location_p)
+												{
+													if (SetCoordinateFromJSON (address_p -> ad_gps_centre_p, location_p, AD_LOCATION_S))
+														{
+															if (SetCoordinateFromJSON (address_p -> ad_gps_north_east_p, location_p, AD_NORTH_EAST_LOCATION_S))
+																{
+																	if (SetCoordinateFromJSON (address_p -> ad_gps_south_west_p, location_p, AD_SOUTH_WEST_LOCATION_S))
+																		{
+																			success_flag = true;
+																		}
+																}
+														}
+
+												}		/* if (address_data_p) */
+
+										}		/* if (data_p) */
+
+									json_decref (docs_p);
+								}		/* if (docs_p) */
+
+						}		/* if (FindMatchingMongoDocumentsByJSON (data_p -> gsd_mongo_tool_p, query_p, NULL)) */
+
+				}		/* if (json_object_set_new (query_p, DB_KEY_S, json_string (plant_id_s)) == 0) */
+
+			json_decref (query_p);
+		}		/* if (query_p) */
+
+	return success_flag;
+}
+
+
+static bool SetCoordinateFromJSON (Coordinate *coord_p, const json_t *values_p, const char *key_s)
+{
+	bool success_flag = false;
+	const json_t *location_p = json_object_get (values_p, key_s);
+
+	if (location_p)
+		{
+			double latitude;
+
+			if (GetJSONReal (location_p, AD_LATITUDE_S, &latitude))
+				{
+					double longitude;
+
+					if (GetJSONReal (location_p, AD_LONGITUDE_S, &longitude))
+						{
+							coord_p -> po_x = latitude;
+							coord_p -> po_y = longitude;
+
+							success_flag = true;
+						}
+
+				}
+
+		}		/* if (location_p) */
+
+
+	return success_flag;
 }
 
 

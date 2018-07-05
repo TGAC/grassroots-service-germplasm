@@ -24,6 +24,11 @@ GermplasmServiceData *AllocateGermplasmServiceData (void)
 
 void FreeGermplasmServiceData (GermplasmServiceData *data_p)
 {
+	if (data_p -> gsd_mongo_tool_p)
+		{
+			FreeMongoTool (data_p -> gsd_mongo_tool_p);
+		}
+
 	FreeMemory (data_p);
 }
 
@@ -40,6 +45,8 @@ bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 		}
 
 	data_p -> gsd_seed_order_by_plant_id_api_s = GetJSONString (service_config_p, "order_page");
+
+
 
 
 	return success_flag;

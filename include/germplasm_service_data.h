@@ -11,6 +11,8 @@
 
 #include "germplasm_service_library.h"
 #include "service.h"
+#include "mongodb_tool.h"
+
 
 typedef struct
 {
@@ -21,6 +23,16 @@ typedef struct
 
 	/** The url to order seeds */
 	const char *gsd_seed_order_by_plant_id_api_s;
+
+	/**
+	 * We can cache GPS coords in a MongoDB to stop
+	 * duplicated geocoding API calls for repeated calls
+	 * for a given hit. It also allows us to store corrected
+	 * GPS coords when the geocoding API gives the wrong
+	 * result since we have only have read-only access to
+	 * the seedstor DB.
+	 */
+	MongoTool *gsd_mongo_tool_p;
 
 } GermplasmServiceData;
 
