@@ -10,6 +10,7 @@
 #include "memory_allocations.h"
 #include "germplasm_service_data.h"
 #include "json_util.h"
+#include "streams.h"
 
 
 GermplasmServiceData *AllocateGermplasmServiceData (void)
@@ -37,7 +38,8 @@ bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 {
 	bool success_flag = false;
 	const json_t *service_config_p = data_p -> gsd_base_data.sd_config_p;
-
+	const char *database_s = GetJSONString (service_config_p, "cache_database");
+	const char *collection_s = GetJSONString (service_config_p, "cache_collection");
 
 	if ((data_p -> gsd_seedstor_api_s = GetJSONString (service_config_p, "seedstor_api")) != NULL)
 		{
@@ -46,7 +48,29 @@ bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 
 	data_p -> gsd_seed_order_by_plant_id_api_s = GetJSONString (service_config_p, "order_page");
 
+	if (database_s && collection_s)
+		{
+			success_flag = false;
 
+			data_p -> gsd_mongo_tool_p = AllocateMongoTool ();
+
+			if (data_p -> gsd_mongo_tool_p)
+				{
+					if (SetMongoToolCollection (data_p -> gsd_mongo_tool_p, database_s, collection_s))
+						{
+							success_flag = true;
+						}		/* if (SetMongoToolCollection (data_p -> gsd_mongo_tool_p, database_s, collection_s)) */
+					else
+						{
+							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to set MongoDBTool to databse \"%s\" and collection \"%s\"", database_s, collection_s);
+						}
+				}		/* if (data_p -> gsd_mongo_tool_p) */
+			else
+				{
+					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate MongoDBTool");
+				}
+
+		}		/* if (database_s && collection_s) */
 
 
 	return success_flag;

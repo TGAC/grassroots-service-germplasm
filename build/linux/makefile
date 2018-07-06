@@ -18,6 +18,7 @@ export DIR_INSTALL := $(DIR_GRASSROOTS_INSTALL)/services
 
 INCLUDES := \
 	-I$(DIR_INCLUDE) \
+	-I$(DIR_GRASSROOTS_MONGODB_INC) \
 	-I$(DIR_GRASSROOTS_UTIL_INC) \
 	-I$(DIR_GRASSROOTS_UTIL_INC)/containers \
 	-I$(DIR_GRASSROOTS_UTIL_INC)/io \
@@ -28,10 +29,12 @@ INCLUDES := \
 	-I$(DIR_GRASSROOTS_GEOCODER_INC) \
 	-I$(DIR_GRASSROOTS_TASK_INC) \
 	-I$(DIR_JANSSON_INC) \
-	-I$(DIR_UUID_INC) 
-	
+	-I$(DIR_UUID_INC) \
+	-I$(DIR_MONGODB_INC) \
+	-I$(DIR_BSON_INC) 
 	
 SRCS 	:= \
+	germplasm_cache.c \
 	germplasm_country_codes.c \
 	germplasm_markup.c \
 	germplasm_service.c \

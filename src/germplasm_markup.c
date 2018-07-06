@@ -6,18 +6,18 @@
  */
 
 
-#include <germplasm_country_codes.h>
+#include "germplasm_country_codes.h"
 #include <string.h>
 
 #include "germplasm_markup.h"
 
 #include "germplasm_service_data.h"
+#include "germplasm_cache.h"
 
 #include "json_util.h"
 #include "string_utils.h"
 #include "address.h"
 #include "geocoder_util.h"
-
 
 /*
  * STATIC DECLARATIONS
@@ -55,7 +55,6 @@ static bool ConvertTerm (const json_t *src_p, const char *src_key_s, json_t *des
 static bool ConvertIds (const json_t *src_p, json_t *dest_p, GermplasmServiceData *data_p);
 
 
-static bool SetCoordinateFromJSON (Coordinate *coord_p, const json_t *values_p, const char *key_s);
 
 
 static const char * const S_NAME_S = "InstituteName";
@@ -64,6 +63,7 @@ static const char * const S_COUNTY_S = "NationalRegion";
 static const char * const S_COUNTRY_S = "Country";
 static const char * const S_COUNTRY_CODE_S = "CountryCode";
 static const char * const S_POSTCODE_S = "PostZipCode";
+
 
 
 /*
@@ -364,7 +364,7 @@ static bool ConvertCorePassportData (const json_t *src_p, json_t *dest_p, Germpl
 				{
 					if (ConvertCountry (src_p, dest_p))
 						{
-							const char *plant_id_s = GetJSONString ("idPlant");
+							const char *plant_id_s = GetJSONString (src_p, "idPlant");
 
 							if (ConvertDonorAddress (src_p, dest_p, dest_context_p, plant_id_s, data_p) >= 0)
 								{
@@ -525,7 +525,7 @@ static int ConvertDonorAddress (const json_t *src_p, json_t *dest_p, json_t *des
 
 	if (breeder_address_src_p)
 		{
-			res = ConvertAddress (breeder_address_src_p, "DonorAddress", dest_p, dest_context_p, data_p);
+			res = ConvertAddress (breeder_address_src_p, "DonorAddress", dest_p, dest_context_p, plant_id_s, data_p);
 		}
 
 	return res;
@@ -555,7 +555,7 @@ static int ConvertBreederAddress (const json_t *src_p, json_t *dest_p, json_t *d
 
 	if (breeder_address_src_p)
 		{
-			res = ConvertAddress (breeder_address_src_p, "BreederAddress", dest_p, dest_context_p, data_p);
+			res = ConvertAddress (breeder_address_src_p, "BreederAddress", dest_p, dest_context_p, plant_id_s, data_p);
 		}
 
 	return res;
@@ -614,15 +614,28 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 				{
 					bool got_gps_flag = false;
 
+					/*
+					 * Check if we have the Geolocation cached.
+					 */
 					if (data_p -> gsd_mongo_tool_p)
 						{
-
-
+							got_gps_flag = GetCachedGeolocationData (address_p, plant_id_s, dest_key_s, data_p -> gsd_mongo_tool_p);
 						}		/* if (data_p -> gsd_mongo_tool_p) */
 
 					if (!got_gps_flag)
 						{
-							got_gps_flag = DetermineGPSLocationForAddress (address_p, NULL);
+							if (DetermineGPSLocationForAddress (address_p, NULL))
+								{
+									if (data_p -> gsd_mongo_tool_p)
+										{
+											if (!CacheGeolocationData (address_p, plant_id_s, dest_key_s, data_p -> gsd_mongo_tool_p))
+												{
+													PrintErrors (STM_LEVEL_WARNING, __FILE__, __LINE__, "Failed to cache Geolocation data for \"%s\" \"%s\"", plant_id_s, dest_key_s);
+												}
+										}
+
+									got_gps_flag = true;
+								}
 						}
 
 					if (got_gps_flag)
@@ -670,117 +683,6 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 		}
 
 	return res;
-}
-
-
-
-static bool GetCachedGeolocationData (Address *address_p, const char *plant_id_s, const char *address_key_s, MongoTool *mongo_p)
-{
-	bool success_flag = false;
-	json_t *query_p = json_object ();
-
-	if (query_p)
-		{
-			const char * const DB_KEY_S = "key";
-
-			if (json_object_set_new (query_p, DB_KEY_S, json_string (plant_id_s)) == 0)
-				{
-					/*
-					 * check for cached gps coords for this entry
-					 */
-					if (FindMatchingMongoDocumentsByJSON (mongo_p, query_p, NULL))
-						{
-							json_t *docs_p = GetAllExistingMongoResultsAsJSON (mongo_p);
-
-							if (docs_p)
-								{
-									const json_t *data_p = NULL;
-
-									if (json_is_array (docs_p))
-										{
-											const size_t num_docs = json_array_size (docs_p);
-
-											if (num_docs == 1)
-												{
-													data_p = json_array_get (docs_p, 0);
-												}
-											else
-												{
-												}
-
-										}		/* if (json_is_array (docs_p)) */
-									else if (json_is_object (docs_p))
-										{
-											data_p = docs_p;
-										}		/* else if (json_is_object (docs_p)) */
-									else
-										{
-											PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, docs_p, "Not valid object for holding GPS data");
-										}
-
-
-									if (data_p)
-										{
-											const json_t *location_p = json_object_get (data_p, address_key_s);
-
-											if (location_p)
-												{
-													if (SetCoordinateFromJSON (address_p -> ad_gps_centre_p, location_p, AD_LOCATION_S))
-														{
-															if (SetCoordinateFromJSON (address_p -> ad_gps_north_east_p, location_p, AD_NORTH_EAST_LOCATION_S))
-																{
-																	if (SetCoordinateFromJSON (address_p -> ad_gps_south_west_p, location_p, AD_SOUTH_WEST_LOCATION_S))
-																		{
-																			success_flag = true;
-																		}
-																}
-														}
-
-												}		/* if (address_data_p) */
-
-										}		/* if (data_p) */
-
-									json_decref (docs_p);
-								}		/* if (docs_p) */
-
-						}		/* if (FindMatchingMongoDocumentsByJSON (data_p -> gsd_mongo_tool_p, query_p, NULL)) */
-
-				}		/* if (json_object_set_new (query_p, DB_KEY_S, json_string (plant_id_s)) == 0) */
-
-			json_decref (query_p);
-		}		/* if (query_p) */
-
-	return success_flag;
-}
-
-
-static bool SetCoordinateFromJSON (Coordinate *coord_p, const json_t *values_p, const char *key_s)
-{
-	bool success_flag = false;
-	const json_t *location_p = json_object_get (values_p, key_s);
-
-	if (location_p)
-		{
-			double latitude;
-
-			if (GetJSONReal (location_p, AD_LATITUDE_S, &latitude))
-				{
-					double longitude;
-
-					if (GetJSONReal (location_p, AD_LONGITUDE_S, &longitude))
-						{
-							coord_p -> po_x = latitude;
-							coord_p -> po_y = longitude;
-
-							success_flag = true;
-						}
-
-				}
-
-		}		/* if (location_p) */
-
-
-	return success_flag;
 }
 
 
