@@ -15,7 +15,7 @@
 static const char * const S_DB_KEY_S = "key";
 
 
-static bool LoadCoordinateFromJSON (Coordinate *coord_p, const json_t *values_p, const char *key_s);
+static bool LoadCoordinateFromJSON (Coordinate **coord_pp, const json_t *values_p, const char *key_s);
 
 static bool SaveCoordinateToJSON (Coordinate *coord_p, json_t *values_p, const char *key_s);
 
@@ -35,19 +35,23 @@ bool CacheGeolocationData (Address *address_p, const char *plant_id_s, const cha
 
 			if (data_to_cache_p)
 				{
-					if (SaveCoordinateToJSON (address_p -> ad_gps_centre_p, data_to_cache_p, AD_LOCATION_S))
+					if (json_object_set_new (data_to_cache_p, S_DB_KEY_S, json_string (key_value_s)) == 0)
 						{
-							if (SaveCoordinateToJSON (address_p -> ad_gps_north_east_p, data_to_cache_p, AD_NORTH_EAST_LOCATION_S))
+							if (SaveCoordinateToJSON (address_p -> ad_gps_centre_p, data_to_cache_p, AD_LOCATION_S))
 								{
-									if (SaveCoordinateToJSON (address_p -> ad_gps_south_west_p, data_to_cache_p, AD_SOUTH_WEST_LOCATION_S))
+									if (SaveCoordinateToJSON (address_p -> ad_gps_north_east_p, data_to_cache_p, AD_NORTH_EAST_LOCATION_S))
 										{
-											if (EasyInsertOrUpdateMongoData (mongo_p, data_to_cache_p,  key_value_s))
+											if (SaveCoordinateToJSON (address_p -> ad_gps_south_west_p, data_to_cache_p, AD_SOUTH_WEST_LOCATION_S))
 												{
-													success_flag = true;
+													if (EasyInsertOrUpdateMongoData (mongo_p, data_to_cache_p, S_DB_KEY_S))
+														{
+															success_flag = true;
+														}
 												}
 										}
 								}
-						}
+
+						}		/* if (json_object_set_new (data_to_cache_p, S_DB_KEY_S, json_string (S_DB_KEY_S)) == 0) */
 
 					json_decref (data_to_cache_p);
 				}		/* if (data_to_cache_p) */
@@ -110,11 +114,11 @@ bool GetCachedGeolocationData (Address *address_p, const char *plant_id_s, const
 
 											if (data_p)
 												{
-													if (LoadCoordinateFromJSON (address_p -> ad_gps_centre_p, data_p, AD_LOCATION_S))
+													if (LoadCoordinateFromJSON (& (address_p -> ad_gps_centre_p), data_p, AD_LOCATION_S))
 														{
-															if (LoadCoordinateFromJSON (address_p -> ad_gps_north_east_p, data_p, AD_NORTH_EAST_LOCATION_S))
+															if (LoadCoordinateFromJSON (& (address_p -> ad_gps_north_east_p), data_p, AD_NORTH_EAST_LOCATION_S))
 																{
-																	if (LoadCoordinateFromJSON (address_p -> ad_gps_south_west_p, data_p, AD_SOUTH_WEST_LOCATION_S))
+																	if (LoadCoordinateFromJSON (& (address_p -> ad_gps_south_west_p), data_p, AD_SOUTH_WEST_LOCATION_S))
 																		{
 																			success_flag = true;
 																		}
@@ -159,16 +163,49 @@ static char *MakeCachingKey (const char *plant_id_s, const char *address_key_s)
 }
 
 
-static bool LoadCoordinateFromJSON (Coordinate *coord_p, const json_t *values_p, const char *key_s)
+static bool LoadCoordinateFromJSON (Coordinate **coord_pp, const json_t *values_p, const char *key_s)
 {
 	bool success_flag = false;
 	const json_t *location_p = json_object_get (values_p, key_s);
 
 	if (location_p)
 		{
-			success_flag = SetCoordinateFromJSON (coord_p, location_p);
-		}		/* if (location_p) */
+			Coordinate coord;
 
+			if (SetCoordinateFromJSON (&coord, location_p))
+				{
+					if (*coord_pp)
+						{
+							(*coord_pp) -> po_x = coord.po_x;
+							(*coord_pp) -> po_y = coord.po_y;
+
+							success_flag = true;
+						}
+					else
+						{
+							*coord_pp = AllocateCoordinate (coord.po_x, coord.po_y);
+
+							if (*coord_pp)
+								{
+									success_flag = true;
+								}		/* if (*coord_pp) */
+							else
+								{
+									PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate coordinate for cached db entry \"%s\"", key_s);
+								}
+						}
+
+				}		/* if (SetCoordinateFromJSON (&coord, location_p)) */
+			else
+				{
+					PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, location_p, "SetCoordinateFromJSON failed for \"%s\"", key_s);
+				}
+
+		}		/* if (location_p) */
+	else
+		{
+			PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, values_p, "Failed to find \"%s\"", key_s);
+		}
 
 	return success_flag;
 }
