@@ -176,14 +176,14 @@ static bool LoadCoordinateFromJSON (Coordinate **coord_pp, const json_t *values_
 				{
 					if (*coord_pp)
 						{
-							(*coord_pp) -> po_x = coord.po_x;
-							(*coord_pp) -> po_y = coord.po_y;
+							(*coord_pp) -> co_x = coord.co_x;
+							(*coord_pp) -> co_y = coord.co_y;
 
 							success_flag = true;
 						}
 					else
 						{
-							*coord_pp = AllocateCoordinate (coord.po_x, coord.po_y);
+							*coord_pp = AllocateCoordinate (coord.co_x, coord.co_y);
 
 							if (*coord_pp)
 								{
