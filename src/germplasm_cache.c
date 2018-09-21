@@ -56,8 +56,6 @@ bool CacheGeolocationData (Address *address_p, const char *plant_id_s, const cha
 					json_decref (data_to_cache_p);
 				}		/* if (data_to_cache_p) */
 
-			//EasyInsertOrUpdateMongoData (mongo_p, json_t *values_p,  plant_id_s)
-
 			FreeCopiedString (key_value_s);
 		}		/* if (key_value_s) */
 
