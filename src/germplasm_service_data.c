@@ -56,7 +56,7 @@ bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 
 			if (data_p -> gsd_mongo_tool_p)
 				{
-					if (SetMongoToolCollection (data_p -> gsd_mongo_tool_p, database_s, collection_s))
+					if (SetMongoToolDatabaseAndCollection (data_p -> gsd_mongo_tool_p, database_s, collection_s))
 						{
 							success_flag = true;
 						}		/* if (SetMongoToolCollection (data_p -> gsd_mongo_tool_p, database_s, collection_s)) */
