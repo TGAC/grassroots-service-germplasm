@@ -52,7 +52,7 @@ bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 		{
 			success_flag = false;
 
-			data_p -> gsd_mongo_tool_p = AllocateMongoTool ();
+			data_p -> gsd_mongo_tool_p = AllocateMongoTool (NULL);
 
 			if (data_p -> gsd_mongo_tool_p)
 				{
