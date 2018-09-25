@@ -79,7 +79,7 @@ bool GetCachedGeolocationData (Address *address_p, const char *plant_id_s, const
 							/*
 							 * check for cached gps coords for this entry
 							 */
-							if (FindMatchingMongoDocumentsByJSON (mongo_p, query_p, NULL))
+							if (FindMatchingMongoDocumentsByJSON (mongo_p, query_p, NULL, NULL))
 								{
 									json_t *docs_p = GetAllExistingMongoResultsAsJSON (mongo_p);
 
