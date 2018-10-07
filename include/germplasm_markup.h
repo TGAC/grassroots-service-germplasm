@@ -8,9 +8,9 @@
 #ifndef SERVICES_GERMPLASM_SERVICE_INCLUDE_GERMPLASM_MARKUP_H_
 #define SERVICES_GERMPLASM_SERVICE_INCLUDE_GERMPLASM_MARKUP_H_
 
-#include "jansson.h"
+#include "germplasm_service_data.h"
 #include "germplasm_service_library.h"
-
+#include "jansson.h"
 #include "germplasm_service_data.h"
 
 #ifdef __cplusplus

@@ -6,14 +6,13 @@
  */
 
 
-#include "germplasm_country_codes.h"
-#include <string.h>
-
 #include "germplasm_markup.h"
 
-#include "germplasm_service_data.h"
-#include "germplasm_cache.h"
+#include <string.h>
 
+#include "germplasm_cache.h"
+#include "germplasm_country_codes.h"
+#include "germplasm_service_data.h"
 #include "json_util.h"
 #include "string_utils.h"
 #include "address.h"

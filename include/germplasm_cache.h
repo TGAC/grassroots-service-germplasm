@@ -9,7 +9,6 @@
 #define SERVICES_GERMPLASM_SERVICE_SRC_GERMPLASM_CACHE_H_
 
 #include "germplasm_service_library.h"
-
 #include "address.h"
 #include "mongodb_tool.h"
 

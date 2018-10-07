@@ -13,12 +13,14 @@
  ** See the License for the specific language governing permissions and
  ** limitations under the License.
  */
+#include "germplasm_service.h"
+
 #include <string.h>
 
+#include "germplasm_markup.h"
+#include "germplasm_service_data.h"
 #include "jansson.h"
 
-#include "germplasm_service.h"
-#include "germplasm_service_data.h"
 #include "memory_allocations.h"
 #include "parameter.h"
 #include "handler.h"
@@ -28,7 +30,6 @@
 #include "service.h"
 #include "service_job.h"
 #include "json_tools.h"
-#include "germplasm_markup.h"
 
 
 /*

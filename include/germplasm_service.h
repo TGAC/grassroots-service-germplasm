@@ -21,9 +21,9 @@
 #ifndef GERMPLASM_SERVICE_H
 #define GERMPLASM_SERVICE_H
 
+#include "germplasm_service_library.h"
 #include "service.h"
 #include "library.h"
-#include "germplasm_service_library.h"
 
 #ifdef __cplusplus
 extern "C"
