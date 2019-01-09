@@ -72,6 +72,7 @@ static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *servi
 
 static void ReleaseGermplasmServiceParameters (Service *service_p, ParameterSet *params_p);
 
+static bool GetGermplasmServiceParameterTypesForNamedParameters (struct Service *service_p, const char *param_name_s, ParameterType *pt_p);
 
 static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
 
@@ -108,6 +109,7 @@ ServicesArray *GetServices (UserDetails *user_p)
 									RunGermplasmServiceForSeedstorAPI,
 									IsFileForGermplasmService,
 									GetGermplasmServiceParametersForSeedstorAPI,
+									GetGermplasmServiceParameterTypesForNamedParameters,
 									ReleaseGermplasmServiceParameters,
 									CloseGermplasmService,
 									NULL,
@@ -202,6 +204,24 @@ static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *servi
 
 	return NULL;
 }
+
+
+static bool GetGermplasmServiceParameterTypesForNamedParameters (struct Service *service_p, const char *param_name_s, ParameterType *pt_p)
+{
+	bool success_flag = true;
+
+	if (strcmp (param_name_s, GS_SEARCH.npt_name_s) == 0)
+		{
+			*pt_p = GS_SEARCH.npt_type;
+		}
+	else
+		{
+			success_flag = false;
+		}
+
+	return success_flag;
+}
+
 
 
 static void ReleaseGermplasmServiceParameters (Service * UNUSED_PARAM (service_p), ParameterSet *params_p)
