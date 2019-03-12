@@ -176,7 +176,7 @@ static const char *GetGermplasmServiceDesciption (Service * UNUSED_PARAM (servic
 
 static const char *GetGermplasmServiceURI (Service * UNUSED_PARAM (service_p))
 {
-	return "https://www.jic.ac.uk/germplasm/Cereal%20Collections%20Public%20GRU.html";
+	return "https://www.jic.ac.uk/research-impact/germplasm-resource-unit/";
 }
 
 
