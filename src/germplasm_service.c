@@ -36,22 +36,8 @@
  * STATIC DATATYPES
  */
 
-static NamedParameterType GS_SEED_DETAILS = { "seed", PT_STRING };
-static NamedParameterType GS_SEED_ID = { "id", PT_STRING };
 
 static NamedParameterType GS_SEARCH = { "query", PT_STRING };
-
-static const char * const GS_STORE_REF_ID_S = "idStoreRef";
-static const char * const GS_STORE_CODE_S = "StoreCode";
-static const char * const GS_PLANT_ID_S = "idPlant";
-static const char * const GS_ACCESSION_S = "AccessionName";
-static const char * const GS_SEARCH_S = "Search";
-
-static const char * const GS_STORE_REF_ID_DISPLAY_NAME_S = "Store reference ID";
-static const char * const GS_STORE_CODE_DISPLAY_NAME_S = "Watkins store code";
-static const char * const GS_PLANT_ID_DISPLAY_NAME_S = "Plant ID";
-static const char * const GS_ACCESSION_DISPLAY_NAME_S = "Accession";
-
 
 
 /*
@@ -170,7 +156,7 @@ static const char *GetGermplasmServiceName (Service * UNUSED_PARAM (service_p))
 
 static const char *GetGermplasmServiceDesciption (Service * UNUSED_PARAM (service_p))
 {
-	return "A service to access the Germplasm Research seeds data at the John Innes Centre.";
+	return "Search the Germplasm Research seeds data at the John Innes Centre.";
 }
 
 
