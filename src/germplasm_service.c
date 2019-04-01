@@ -102,7 +102,8 @@ ServicesArray *GetServices (UserDetails *user_p)
 									true,
 									SY_SYNCHRONOUS,
 									(ServiceData *) data_p,
-									GetGermplasmServiceMetadata))
+									GetGermplasmServiceMetadata,
+									NULL))
 								{
 									if (ConfigureGermplasmService (data_p))
 										{
