@@ -151,7 +151,7 @@ static bool CloseGermplasmService (Service *service_p)
 
 static const char *GetGermplasmServiceName (Service * UNUSED_PARAM (service_p))
 {
-	return "Germplasm Research Unit seeds service";
+	return "Search GRU seedbank";
 }
 
 
