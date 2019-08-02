@@ -1,3 +1,4 @@
+
 NAME 		:= germplasm_service
 DIR_BUILD :=  $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 DIR_SRC := $(realpath $(DIR_BUILD)/../../src)
@@ -23,6 +24,7 @@ INCLUDES := \
 	-I$(DIR_GRASSROOTS_UTIL_INC)/containers \
 	-I$(DIR_GRASSROOTS_UTIL_INC)/io \
 	-I$(DIR_GRASSROOTS_NETWORK_INC) \
+	-I$(DIR_GRASSROOTS_SERVER_INC) \
 	-I$(DIR_GRASSROOTS_SERVICES_INC) \
 	-I$(DIR_GRASSROOTS_PARAMS_INC) \
 	-I$(DIR_GRASSROOTS_HANDLER_INC) \
