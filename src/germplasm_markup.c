@@ -623,7 +623,9 @@ static int ConvertAddress (const json_t *src_p, const char *dest_key_s, json_t *
 
 					if (!got_gps_flag)
 						{
-							if (DetermineGPSLocationForAddress (address_p, NULL))
+							GrassrootsServer *grassroots_p = GetGrassrootsServerFromService (data_p -> gsd_base_data.sd_service_p);
+
+							if (DetermineGPSLocationForAddress (address_p, NULL, grassroots_p))
 								{
 									if (data_p -> gsd_mongo_tool_p)
 										{
