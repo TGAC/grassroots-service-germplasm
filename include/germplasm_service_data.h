@@ -48,7 +48,7 @@ GERMPLASM_SERVICE_LOCAL GermplasmServiceData *AllocateGermplasmServiceData (void
 
 GERMPLASM_SERVICE_LOCAL void FreeGermplasmServiceData (GermplasmServiceData *data_p);
 
-GERMPLASM_SERVICE_LOCAL bool ConfigureGermplasmService (GermplasmServiceData *data_p);
+GERMPLASM_SERVICE_LOCAL bool ConfigureGermplasmService (GermplasmServiceData *data_p, GrassrootsServer *grassroots_p);
 
 
 #ifdef __cplusplus

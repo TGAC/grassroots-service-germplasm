@@ -74,7 +74,7 @@ static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p);
  * API FUNCTIONS
  */
 
-ServicesArray *GetServices (UserDetails *user_p)
+ServicesArray *GetServices (UserDetails *user_p, GrassrootsServer *grassroots_p)
 {
 	Service *service_p = (Service *) AllocMemory (sizeof (Service));
 
@@ -103,9 +103,10 @@ ServicesArray *GetServices (UserDetails *user_p)
 									SY_SYNCHRONOUS,
 									(ServiceData *) data_p,
 									GetGermplasmServiceMetadata,
-									NULL))
+									NULL,
+									grassroots_p))
 								{
-									if (ConfigureGermplasmService (data_p))
+									if (ConfigureGermplasmService (data_p, grassroots_p))
 										{
 											* (services_p -> sa_services_pp) = service_p;
 

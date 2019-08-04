@@ -40,7 +40,7 @@ extern "C"
  * <code>NULL</code> upon error.
  * @ingroup germplasm_service
  */
-GERMPLASM_SERVICE_API ServicesArray *GetServices (UserDetails *user_p);
+GERMPLASM_SERVICE_API ServicesArray *GetServices (UserDetails *user_p, GrassrootsServer *grassroots_p);
 
 /**
  * Free the ServicesArray containing the germplasm Services.

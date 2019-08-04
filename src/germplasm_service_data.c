@@ -35,7 +35,7 @@ void FreeGermplasmServiceData (GermplasmServiceData *data_p)
 }
 
 
-bool ConfigureGermplasmService (GermplasmServiceData *data_p)
+bool ConfigureGermplasmService (GermplasmServiceData *data_p, GrassrootsServer *grassroots_p)
 {
 	bool success_flag = false;
 	const json_t *service_config_p = data_p -> gsd_base_data.sd_config_p;
@@ -51,8 +51,6 @@ bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 
 	if (database_s && collection_s)
 		{
-			GrassrootsServer *grassroots_p = GetGrassrootsServerFromService (data_p -> gsd_base_data.sd_service_p);
-
 			success_flag = false;
 
 			if ((data_p -> gsd_mongo_tool_p = AllocateMongoTool (NULL, grassroots_p -> gs_mongo_manager_p)) != NULL)
