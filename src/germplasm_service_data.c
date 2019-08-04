@@ -51,11 +51,11 @@ bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 
 	if (database_s && collection_s)
 		{
+			GrassrootsServer *grassroots_p = GetGrassrootsServerFromService (data_p -> gsd_base_data.sd_service_p);
+
 			success_flag = false;
 
-			data_p -> gsd_mongo_tool_p = AllocateMongoTool (NULL);
-
-			if (data_p -> gsd_mongo_tool_p)
+			if ((data_p -> gsd_mongo_tool_p = AllocateMongoTool (NULL, grassroots_p -> gs_mongo_manager_p)) != NULL)
 				{
 					if (SetMongoToolDatabaseAndCollection (data_p -> gsd_mongo_tool_p, database_s, collection_s))
 						{
@@ -65,7 +65,7 @@ bool ConfigureGermplasmService (GermplasmServiceData *data_p)
 						{
 							PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to set MongoDBTool to databse \"%s\" and collection \"%s\"", database_s, collection_s);
 						}
-				}		/* if (data_p -> gsd_mongo_tool_p) */
+				}
 			else
 				{
 					PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "Failed to allocate MongoDBTool");
