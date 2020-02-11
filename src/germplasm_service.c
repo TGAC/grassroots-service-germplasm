@@ -31,6 +31,7 @@
 #include "service_job.h"
 #include "json_tools.h"
 
+#include "string_parameter.h"
 
 /*
  * STATIC DATATYPES
@@ -176,13 +177,8 @@ static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *servi
 		{
 			Parameter *param_p;
 			ServiceData *data_p = service_p -> se_data_p;
-			SharedType def;
 
-			InitSharedType (&def);
-
-			def.st_string_value_s = (char *) "";
-
-			if ((param_p = EasyCreateAndAddParameterToParameterSet (data_p, param_set_p, NULL, GS_SEARCH.npt_type, GS_SEARCH.npt_name_s, "Search", "The value to search SeedStor for. This can be the Watkins ID, accession name, etc.", def, PL_ALL)) != NULL)
+			if ((param_p = EasyCreateAndAddStringParameterToParameterSet (data_p, param_set_p, NULL, GS_SEARCH.npt_type, GS_SEARCH.npt_name_s, "Search", "The value to search SeedStor for. This can be the Watkins ID, accession name, etc.", NULL, PL_ALL)) != NULL)
 				{
 					return param_set_p;
 				}
@@ -228,13 +224,12 @@ static void ReleaseGermplasmServiceParameters (Service * UNUSED_PARAM (service_p
 static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
 {
 	GermplasmServiceData *data_p = (GermplasmServiceData *) service_p -> se_data_p;
-	SharedType search_value;
+	const char *search_s = NULL;
 
-	InitSharedType (&search_value);
 
-	if (GetParameterValueFromParameterSet (param_set_p, GS_SEARCH.npt_name_s, &search_value, true))
+	if (GetCurrentStringParameterValueFromParameterSet (param_set_p, GS_SEARCH.npt_name_s, &search_s))
 		{
-			if (search_value.st_string_value_s)
+			if (!IsStringEmpty (search_s))
 				{
 					/* We only have one task */
 					service_p -> se_jobs_p = AllocateSimpleServiceJobSet (service_p, NULL, "Germplasm results");
@@ -245,7 +240,7 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 							const char *var_s = "query";
 
 							/* Generate the REST API address */
-							char *api_url_s = ConcatenateVarargsStrings (data_p -> gsd_seedstor_api_s, api_page_s, "?", var_s, "=", search_value.st_string_value_s, NULL);
+							char *api_url_s = ConcatenateVarargsStrings (data_p -> gsd_seedstor_api_s, api_page_s, "?", var_s, "=", search_s, NULL);
 
 							if (api_url_s)
 								{
@@ -290,7 +285,7 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 
 																							if (marked_up_result_p)
 																								{
-																									json_t *job_result_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, search_value.st_string_value_s, marked_up_result_p);
+																									json_t *job_result_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, search_s, marked_up_result_p);
 
 																									if (job_result_p)
 																										{
@@ -307,7 +302,7 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 																										}		/* if (job_result_p) */
 																									else
 																										{
-																											PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, job_result_p, "GetResourceAsJSONByParts failed for query \"%s\"", search_value.st_string_value_s);
+																											PrintJSONToErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, job_result_p, "GetResourceAsJSONByParts failed for query \"%s\"", search_s);
 																										}
 
 																									json_decref (marked_up_result_p);
@@ -377,7 +372,7 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 								}		/* if (api_url_s) */
 							else
 								{
-									PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "ConcatenateVarargsStrings failed for \"%s\", \"%s\" and \"%s\"", data_p -> gsd_seedstor_api_s, var_s, search_value.st_string_value_s);
+									PrintErrors (STM_LEVEL_SEVERE, __FILE__, __LINE__, "ConcatenateVarargsStrings failed for \"%s\", \"%s\" and \"%s\"", data_p -> gsd_seedstor_api_s, var_s, search_s);
 								}
 
 						}		/* if (service_p -> se_jobs_p) */
