@@ -47,11 +47,11 @@ static NamedParameterType GS_SEARCH = { "query", PT_STRING };
 
 
 
-static const char *GetGermplasmServiceName (Service *service_p);
+static const char *GetGermplasmServiceName (const Service *service_p);
 
-static const char *GetGermplasmServiceDesciption (Service *service_p);
+static const char *GetGermplasmServiceDesciption (const Service *service_p);
 
-static const char *GetGermplasmServiceURI (Service *service_p);
+static const char *GetGermplasmServiceURI (const Service *service_p);
 
 
 static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, Resource *resource_p, UserDetails *user_p);
@@ -59,7 +59,7 @@ static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *servi
 
 static void ReleaseGermplasmServiceParameters (Service *service_p, ParameterSet *params_p);
 
-static bool GetGermplasmServiceParameterTypesForNamedParameters (struct Service *service_p, const char *param_name_s, ParameterType *pt_p);
+static bool GetGermplasmServiceParameterTypesForNamedParameters (const Service *service_p, const char *param_name_s, ParameterType *pt_p);
 
 static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
 
@@ -151,19 +151,19 @@ static bool CloseGermplasmService (Service *service_p)
 
 
 
-static const char *GetGermplasmServiceName (Service * UNUSED_PARAM (service_p))
+static const char *GetGermplasmServiceName (const Service * UNUSED_PARAM (service_p))
 {
 	return "Search GRU seedbank";
 }
 
 
-static const char *GetGermplasmServiceDesciption (Service * UNUSED_PARAM (service_p))
+static const char *GetGermplasmServiceDesciption (const Service * UNUSED_PARAM (service_p))
 {
 	return "Search the Germplasm Research seeds data at the John Innes Centre.";
 }
 
 
-static const char *GetGermplasmServiceURI (Service * UNUSED_PARAM (service_p))
+static const char *GetGermplasmServiceURI (const Service * UNUSED_PARAM (service_p))
 {
 	return "https://www.jic.ac.uk/research-impact/germplasm-resource-unit/";
 }
@@ -190,7 +190,7 @@ static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *servi
 }
 
 
-static bool GetGermplasmServiceParameterTypesForNamedParameters (struct Service *service_p, const char *param_name_s, ParameterType *pt_p)
+static bool GetGermplasmServiceParameterTypesForNamedParameters (const Service *service_p, const char *param_name_s, ParameterType *pt_p)
 {
 	bool success_flag = true;
 
