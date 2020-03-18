@@ -168,7 +168,7 @@ static const char *GetGermplasmServiceDescription (const Service * UNUSED_PARAM 
 
 static const char *GetGermplasmServiceAlias (const Service * UNUSED_PARAM (service_p))
 {
-	return "search_gur_seedstor";
+	return "germplasm/search";
 }
 
 
