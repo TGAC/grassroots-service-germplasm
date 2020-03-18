@@ -49,7 +49,9 @@ static NamedParameterType GS_SEARCH = { "query", PT_STRING };
 
 static const char *GetGermplasmServiceName (const Service *service_p);
 
-static const char *GetGermplasmServiceDesciption (const Service *service_p);
+static const char *GetGermplasmServiceAlias (const Service *service_p);
+
+static const char *GetGermplasmServiceDescription (const Service *service_p);
 
 static const char *GetGermplasmServiceURI (const Service *service_p);
 
@@ -91,7 +93,8 @@ ServicesArray *GetServices (UserDetails *user_p, GrassrootsServer *grassroots_p)
 						{
 							if (InitialiseService (service_p,
 									GetGermplasmServiceName,
-									GetGermplasmServiceDesciption,
+									GetGermplasmServiceDescription,
+									GetGermplasmServiceAlias,
 									GetGermplasmServiceURI,
 									RunGermplasmServiceForSeedstorAPI,
 									IsFileForGermplasmService,
@@ -157,9 +160,15 @@ static const char *GetGermplasmServiceName (const Service * UNUSED_PARAM (servic
 }
 
 
-static const char *GetGermplasmServiceDesciption (const Service * UNUSED_PARAM (service_p))
+static const char *GetGermplasmServiceDescription (const Service * UNUSED_PARAM (service_p))
 {
 	return "Search the Germplasm Research seeds data at the John Innes Centre.";
+}
+
+
+static const char *GetGermplasmServiceAlias (const Service * UNUSED_PARAM (service_p))
+{
+	return "search_gur_seedstor";
 }
 
 
