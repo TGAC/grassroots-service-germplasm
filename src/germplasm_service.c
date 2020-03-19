@@ -41,6 +41,8 @@
 static NamedParameterType GS_SEARCH = { "query", PT_STRING };
 
 
+static const char * const group_sep_s = "/";
+
 /*
  * STATIC PROTOTYPES
  */
@@ -168,7 +170,7 @@ static const char *GetGermplasmServiceDescription (const Service * UNUSED_PARAM 
 
 static const char *GetGermplasmServiceAlias (const Service * UNUSED_PARAM (service_p))
 {
-	return "germplasm/search";
+	return "germplasm" SERVICE_GROUP_ALIAS_SEPARATOR "search";
 }
 
 
