@@ -258,7 +258,7 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 									/*
 									 * Now we make the call to the REST API
 									 */
-									CurlTool *curl_p = AllocateCurlTool (CM_MEMORY);
+									CurlTool *curl_p = AllocateMemoryCurlTool (0);
 
 									if (curl_p)
 										{
