@@ -58,7 +58,7 @@ static const char *GetGermplasmServiceDescription (const Service *service_p);
 static const char *GetGermplasmServiceURI (const Service *service_p);
 
 
-static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, Resource *resource_p, UserDetails *user_p);
+static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, DataResource *resource_p, UserDetails *user_p);
 
 
 static void ReleaseGermplasmServiceParameters (Service *service_p, ParameterSet *params_p);
@@ -68,7 +68,7 @@ static bool GetGermplasmServiceParameterTypesForNamedParameters (const Service *
 static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
 
 
-static ParameterSet *IsFileForGermplasmService (Service *service_p, Resource *resource_p, Handler *handler_p);
+static ParameterSet *IsFileForGermplasmService (Service *service_p, DataResource *resource_p, Handler *handler_p);
 
 static bool CloseGermplasmService (Service *service_p);
 
@@ -180,7 +180,7 @@ static const char *GetGermplasmServiceURI (const Service * UNUSED_PARAM (service
 }
 
 
-static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, Resource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
+static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, DataResource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
 {
 	ParameterSet *param_set_p = AllocateParameterSet ("Germplasm service parameters", "The parameters used for the Germplasm service");
 
@@ -296,7 +296,7 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 
 																							if (marked_up_result_p)
 																								{
-																									json_t *job_result_p = GetResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, search_s, marked_up_result_p);
+																									json_t *job_result_p = GetDataResourceAsJSONByParts (PROTOCOL_INLINE_S, NULL, search_s, marked_up_result_p);
 
 																									if (job_result_p)
 																										{
@@ -407,7 +407,7 @@ static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, Par
 }
 
 
-static ParameterSet *IsFileForGermplasmService (Service * UNUSED_PARAM (service_p), Resource * UNUSED_PARAM (resource_p), Handler * UNUSED_PARAM (handler_p))
+static ParameterSet *IsFileForGermplasmService (Service * UNUSED_PARAM (service_p), DataResource * UNUSED_PARAM (resource_p), Handler * UNUSED_PARAM (handler_p))
 {
 	return NULL;
 }
