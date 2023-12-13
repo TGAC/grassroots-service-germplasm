@@ -58,14 +58,14 @@ static const char *GetGermplasmServiceDescription (const Service *service_p);
 static const char *GetGermplasmServiceURI (const Service *service_p);
 
 
-static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, DataResource *resource_p, UserDetails *user_p);
+static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, DataResource *resource_p, User *user_p);
 
 
 static void ReleaseGermplasmServiceParameters (Service *service_p, ParameterSet *params_p);
 
 static bool GetGermplasmServiceParameterTypesForNamedParameters (const Service *service_p, const char *param_name_s, ParameterType *pt_p);
 
-static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails *user_p, ProvidersStateTable *providers_p);
+static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, User *user_p, ProvidersStateTable *providers_p);
 
 
 static ParameterSet *IsFileForGermplasmService (Service *service_p, DataResource *resource_p, Handler *handler_p);
@@ -79,7 +79,7 @@ static ServiceMetadata *GetGermplasmServiceMetadata (Service *service_p);
  * API FUNCTIONS
  */
 
-ServicesArray *GetServices (UserDetails *user_p, GrassrootsServer *grassroots_p)
+ServicesArray *GetServices (User *user_p, GrassrootsServer *grassroots_p)
 {
 	Service *service_p = (Service *) AllocMemory (sizeof (Service));
 
@@ -180,7 +180,7 @@ static const char *GetGermplasmServiceURI (const Service * UNUSED_PARAM (service
 }
 
 
-static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, DataResource * UNUSED_PARAM (resource_p), UserDetails * UNUSED_PARAM (user_p))
+static ParameterSet *GetGermplasmServiceParametersForSeedstorAPI (Service *service_p, DataResource * UNUSED_PARAM (resource_p), User * UNUSED_PARAM (user_p))
 {
 	ParameterSet *param_set_p = AllocateParameterSet ("Germplasm service parameters", "The parameters used for the Germplasm service");
 
@@ -232,7 +232,7 @@ static void ReleaseGermplasmServiceParameters (Service * UNUSED_PARAM (service_p
  * https://grassroots.tools/seedstor/apisearch-unified.php?query=10222
  */
 
-static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, UserDetails * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
+static ServiceJobSet *RunGermplasmServiceForSeedstorAPI (Service *service_p, ParameterSet *param_set_p, User * UNUSED_PARAM (user_p), ProvidersStateTable * UNUSED_PARAM (providers_p))
 {
 	GermplasmServiceData *data_p = (GermplasmServiceData *) service_p -> se_data_p;
 	const char *search_s = NULL;
